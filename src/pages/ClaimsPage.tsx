@@ -2,15 +2,20 @@ import { motion } from 'framer-motion'
 import { Download, ShieldCheck } from 'lucide-react'
 import { StatusPill } from '../components/StatusPill'
 import { TrustScoreGauge } from '../components/TrustScoreGauge'
+import { useAppData } from '../context/AppDataContext'
 import { useAuth } from '../context/AuthContext'
-import { activeAlert, payoutHistory, premiumHistory, verificationSignals, worker } from '../data/mockData'
 import { pageTransition } from '../lib/motion'
 import { formatCurrency } from '../utils/format'
 
 export function ClaimsPage() {
   const { user } = useAuth()
-  const profile = user ?? worker
-  const claimsPayoutHistory = payoutHistory.filter((entry) => entry.amount > 0)
+  const { data } = useAppData()
+
+  if (!user || !data) {
+    return null
+  }
+
+  const claimsPayoutHistory = data.claims.payoutHistory.filter((entry) => entry.amount > 0)
 
   return (
     <motion.div
@@ -34,23 +39,25 @@ export function ClaimsPage() {
             >
               🔴 Active Parametric Trigger
             </StatusPill>
-            <span className="text-sm text-sky-light/70">{activeAlert.triggeredAt}</span>
+            <span className="text-sm text-sky-light/70">{data.claims.activeAlert.triggeredAt}</span>
           </div>
           <div className="mt-8 grid gap-6 lg:grid-cols-[auto_1fr_auto] lg:items-start">
-            <div className="text-6xl">{activeAlert.emoji}</div>
+            <div className="text-6xl">{data.claims.activeAlert.emoji}</div>
             <div>
               <h2 className="font-serif text-4xl leading-tight text-white">
-                {activeAlert.type} Alert — {activeAlert.zone}
+                {data.claims.activeAlert.type} Alert — {data.claims.activeAlert.zone}
               </h2>
               <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.22em] text-sky-light/60">
-                {activeAlert.condition}
+                {data.claims.activeAlert.condition}
               </p>
-              <p className="mt-3 text-sm text-sky-light/75">Sent to UPI ID {profile.upi}</p>
+              <p className="mt-3 text-sm text-sky-light/75">Sent to UPI ID {user.upi}</p>
             </div>
             <div className="rounded-[24px] border border-white/10 bg-white/5 px-5 py-4">
               <p className="mono-label !text-sky-light">Payout</p>
-              <div className="mt-2 font-serif text-5xl text-gold">{formatCurrency(activeAlert.payoutAmount)}</div>
-              <p className="mt-2 text-sm text-sky-light/70">{activeAlert.paidAt}</p>
+              <div className="mt-2 font-serif text-5xl text-gold">
+                {formatCurrency(data.claims.activeAlert.payoutAmount)}
+              </div>
+              <p className="mt-2 text-sm text-sky-light/70">{data.claims.activeAlert.paidAt}</p>
             </div>
           </div>
           <div className="mt-10">
@@ -77,14 +84,14 @@ export function ClaimsPage() {
             <StatusPill status="paid">Excellent</StatusPill>
           </div>
           <div className="mt-6 flex justify-center">
-            <TrustScoreGauge score={profile.trustScore} />
+            <TrustScoreGauge score={user.trustScore} />
           </div>
           <div className="mt-3 text-center">
-            <div className="font-serif text-5xl text-navy">{profile.trustScore}</div>
+            <div className="font-serif text-5xl text-navy">{user.trustScore}</div>
             <p className="mt-2 text-sm font-semibold text-k-green">Excellent · Auto-approved</p>
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {verificationSignals.map((signal) => (
+            {data.claims.verificationSignals.map((signal) => (
               <div
                 key={signal}
                 className="rounded-full bg-sky-pale px-4 py-3 text-sm font-medium text-navy"
@@ -141,7 +148,7 @@ export function ClaimsPage() {
             <StatusPill status="active">AutoPay</StatusPill>
           </div>
           <div className="mt-6 space-y-4">
-            {premiumHistory.map((premium) => (
+            {data.claims.premiumHistory.map((premium) => (
               <div
                 key={premium.cycle}
                 className="rounded-[24px] bg-sky-pale/55 p-4"

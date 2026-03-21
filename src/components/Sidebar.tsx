@@ -7,7 +7,7 @@ import {
   UserCircle2,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
-import { worker } from '../data/mockData'
+import { useAuth } from '../context/AuthContext'
 import { cn } from '../utils/cn'
 import { formatCurrency } from '../utils/format'
 
@@ -51,13 +51,17 @@ function SidebarLink({
 }
 
 export function Sidebar() {
+  const { user } = useAuth()
+  const visibleMainLinks =
+    user?.role === 'admin' ? mainLinks : mainLinks.filter((link) => link.to !== '/analytics')
+
   return (
     <aside className="fixed bottom-0 left-0 top-16 hidden w-60 border-r border-sky-light bg-white px-4 pb-6 pt-6 md:flex md:flex-col">
       <div className="space-y-7">
         <div>
           <p className="mono-label">Main</p>
           <div className="mt-3 space-y-1">
-            {mainLinks.map((link) => (
+            {visibleMainLinks.map((link) => (
               <SidebarLink
                 key={link.to}
                 {...link}
@@ -80,8 +84,10 @@ export function Sidebar() {
 
       <div className="mt-auto rounded-2xl bg-navy p-4 text-white shadow-lg">
         <p className="mono-label !text-sky-light">Active plan</p>
-        <h3 className="mt-2 font-serif text-2xl text-white">{worker.plan}</h3>
-        <p className="mt-2 text-sm text-sky-light/80">Weekly premium {formatCurrency(worker.weeklyPremium)}</p>
+        <h3 className="mt-2 font-serif text-2xl text-white">{user?.plan ?? 'Kavach Shield'}</h3>
+        <p className="mt-2 text-sm text-sky-light/80">
+          Weekly premium {formatCurrency(user?.weeklyPremium ?? 49)}
+        </p>
         <button
           type="button"
           className="mt-5 w-full rounded-full bg-gold px-4 py-3 text-sm font-semibold text-navy"

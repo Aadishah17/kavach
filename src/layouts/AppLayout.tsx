@@ -4,7 +4,8 @@ import { NavLink } from 'react-router-dom'
 import { Navbar } from '../components/Navbar'
 import { Sidebar } from '../components/Sidebar'
 import { WhatsAppSupportButton } from '../components/WhatsAppSupportButton'
-import { cn } from '../lib/cn'
+import { useAppData } from '../context/AppDataContext'
+import { cn } from '../utils/cn'
 
 const bottomNavItems = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
@@ -14,12 +15,45 @@ const bottomNavItems = [
 ]
 
 export function AppLayout() {
+  const { data, error, isLoading, refreshData } = useAppData()
+
   return (
     <div className="min-h-screen bg-kavach">
       <Navbar isApp />
       <Sidebar />
       <main className="min-h-screen px-4 pb-28 pt-20 lg:ml-60 lg:px-8">
-        <Outlet />
+        {isLoading ? (
+          <div className="grid min-h-[60vh] place-items-center px-6 text-center">
+            <div>
+              <p className="font-serif text-4xl text-navy">Kavach</p>
+              <p className="mt-3 text-sm font-medium text-muted">Syncing live protection data…</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="grid min-h-[60vh] place-items-center px-6">
+            <div className="panel-card max-w-xl p-8 text-center">
+              <p className="mono-label">Connection error</p>
+              <h2 className="mt-3 text-3xl text-navy">Live data could not be loaded.</h2>
+              <p className="mt-3 text-sm leading-7 text-muted">{error}</p>
+              <button
+                type="button"
+                onClick={() => void refreshData()}
+                className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-navy px-5 text-sm font-semibold text-white"
+              >
+                Retry sync
+              </button>
+            </div>
+          </div>
+        ) : !data ? (
+          <div className="grid min-h-[60vh] place-items-center px-6 text-center">
+            <div>
+              <p className="font-serif text-4xl text-navy">Kavach</p>
+              <p className="mt-3 text-sm font-medium text-muted">No protected data is available yet.</p>
+            </div>
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
       <nav className="fixed inset-x-4 bottom-4 z-40 rounded-full border border-sky-light bg-white/95 p-2 shadow-lg backdrop-blur lg:hidden">
         <div className="grid grid-cols-4 gap-1">

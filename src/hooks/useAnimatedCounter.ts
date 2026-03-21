@@ -22,11 +22,11 @@ export function useAnimatedCounter(
     const rounded = Number(latest.toFixed(decimals))
     return formatter ? formatter(rounded) : rounded.toFixed(decimals)
   })
-  const [value, setValue] = useState(formatter ? formatter(target) : target.toFixed(decimals))
+  const disabledValue = formatter ? formatter(target) : target.toFixed(decimals)
+  const [value, setValue] = useState(formatter ? formatter(0) : (0).toFixed(decimals))
 
   useEffect(() => {
     if (!enabled) {
-      setValue(formatter ? formatter(target) : target.toFixed(decimals))
       return
     }
 
@@ -45,5 +45,5 @@ export function useAnimatedCounter(
     }
   }, [decimals, duration, enabled, formatter, motionValue, target, transformed])
 
-  return value
+  return enabled ? value : disabledValue
 }

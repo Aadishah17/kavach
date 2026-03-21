@@ -1,10 +1,16 @@
 import { motion } from 'framer-motion'
 import { AlertTriangle, PhoneCall } from 'lucide-react'
 import { StatusPill } from '../components/StatusPill'
-import { alertsFeed, emergencyResources, supportContacts } from '../data/mockData'
+import { useAppData } from '../context/AppDataContext'
 import { pageTransition } from '../lib/motion'
 
 export function AlertsPage() {
+  const { data } = useAppData()
+
+  if (!data) {
+    return null
+  }
+
   return (
     <motion.section
       {...pageTransition}
@@ -37,7 +43,7 @@ export function AlertsPage() {
             <StatusPill status="alert" />
           </div>
           <div className="mt-6 space-y-4">
-            {alertsFeed.map((item) => (
+            {data.alerts.feed.map((item) => (
               <article
                 key={item.title}
                 className="rounded-2xl bg-kavach px-5 py-5"
@@ -67,7 +73,7 @@ export function AlertsPage() {
               </div>
             </div>
             <div className="mt-6 space-y-4">
-              {emergencyResources.map((resource) => (
+              {data.alerts.emergencyResources.map((resource) => (
                 <div
                   key={resource.title}
                   className="rounded-2xl bg-kavach px-4 py-4"
@@ -89,7 +95,7 @@ export function AlertsPage() {
             <p className="mono-label">Support contacts</p>
             <h2 className="mt-2 text-3xl">Backup network</h2>
             <div className="mt-6 space-y-4">
-              {supportContacts.map((contact) => (
+              {data.alerts.supportContacts.map((contact) => (
                 <div
                   key={contact.phone}
                   className="flex items-center justify-between rounded-2xl bg-kavach px-4 py-4"

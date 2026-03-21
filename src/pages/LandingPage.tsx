@@ -14,9 +14,13 @@ export function LandingPage() {
   const navigate = useNavigate()
   const { loginAsDemo } = useAuth()
 
-  const openDemo = () => {
-    loginAsDemo()
-    navigate('/dashboard')
+  const openDemo = async () => {
+    try {
+      await loginAsDemo()
+      navigate('/dashboard')
+    } catch (error) {
+      console.error('Unable to open Kavach demo', error)
+    }
   }
 
   return (
@@ -65,7 +69,7 @@ export function LandingPage() {
               </Link>
               <button
                 type="button"
-                onClick={openDemo}
+                onClick={() => void openDemo()}
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 <Play className="h-4 w-4" />
@@ -237,7 +241,7 @@ export function LandingPage() {
               </Link>
               <button
                 type="button"
-                onClick={openDemo}
+                onClick={() => void openDemo()}
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Chat with support

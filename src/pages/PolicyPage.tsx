@@ -1,10 +1,18 @@
 import { motion } from 'framer-motion'
 import { StatusPill } from '../components/StatusPill'
-import { policyCoverage, premiumHistory, triggerCards, worker } from '../data/mockData'
+import { useAppData } from '../context/AppDataContext'
+import { useAuth } from '../context/AuthContext'
 import { pageTransition } from '../lib/motion'
 import { formatCurrency } from '../utils/format'
 
 export function PolicyPage() {
+  const { user } = useAuth()
+  const { data } = useAppData()
+
+  if (!user || !data) {
+    return null
+  }
+
   return (
     <motion.section
       {...pageTransition}
@@ -13,17 +21,17 @@ export function PolicyPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="mono-label">Policy details</p>
-          <h1 className="mt-3 text-[44px] leading-none">{worker.plan}</h1>
+          <h1 className="mt-3 text-[44px] leading-none">{user.plan}</h1>
           <p className="mt-3 text-base text-muted">A parametric protection plan designed around real gig-economy risk.</p>
         </div>
         <StatusPill status="active" />
       </header>
 
       <section className="grid gap-4 lg:grid-cols-4">
-        <SummaryCard label="Weekly premium" value={formatCurrency(worker.weeklyPremium)} hint="Every Monday" />
-        <SummaryCard label="Insured income" value={formatCurrency(worker.iwi)} hint="Weekly cap" />
-        <SummaryCard label="Trust score" value={String(worker.trustScore)} hint="Auto-approved" />
-        <SummaryCard label="Next deduction" value="24 Mar" hint={worker.nextDeduction} />
+        <SummaryCard label="Weekly premium" value={formatCurrency(user.weeklyPremium)} hint="Every Monday" />
+        <SummaryCard label="Insured income" value={formatCurrency(user.iwi)} hint="Weekly cap" />
+        <SummaryCard label="Trust score" value={String(user.trustScore)} hint="Auto-approved" />
+        <SummaryCard label="Next deduction" value="24 Mar" hint={user.nextDeduction} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -31,7 +39,7 @@ export function PolicyPage() {
           <p className="mono-label">Policy overview</p>
           <h2 className="mt-2 text-3xl">What your cover includes</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {policyCoverage.map((item) => (
+            {data.policy.coverage.map((item) => (
               <article
                 key={item.title}
                 className="rounded-2xl bg-kavach p-5"
@@ -50,7 +58,7 @@ export function PolicyPage() {
           <p className="mono-label">Trigger matrix</p>
           <h2 className="mt-2 text-3xl">Coverage readiness</h2>
           <div className="mt-6 space-y-3">
-            {triggerCards.map((card) => (
+            {data.policy.triggers.map((card) => (
               <div
                 key={card.name}
                 className="flex items-center justify-between rounded-2xl bg-kavach px-4 py-3"
@@ -82,7 +90,7 @@ export function PolicyPage() {
             Download receipt
           </button>
         </div>
-        {premiumHistory.map((item) => (
+        {data.policy.premiumHistory.map((item) => (
           <div
             key={item.cycle}
             className="grid min-w-[640px] grid-cols-[1fr_1fr_1fr] gap-4 border-b border-sky-light px-5 py-4 text-sm last:border-b-0"

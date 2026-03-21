@@ -1,19 +1,50 @@
 import { motion } from 'framer-motion'
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { KpiCard } from '../components/KpiCard'
-import { analyticsKpis, claimsBreakdown, financialHealth, fraudSignals, unitEconomics, weeklyChartData } from '../data/mockData'
+import { useAppData } from '../context/AppDataContext'
 import { pageTransition } from '../lib/motion'
-import { formatCompactCurrency, formatPercent } from '../utils/format'
-
-const analyticsCards = [
-  { label: 'Active workers', value: analyticsKpis.activeWorkers.toLocaleString('en-IN'), hint: '↑12%', accent: 'green' as const },
-  { label: 'Premium / week', value: formatCompactCurrency(analyticsKpis.weeklyPremium), hint: 'Stable', accent: 'sky' as const },
-  { label: 'Claims paid', value: formatCompactCurrency(analyticsKpis.claimsPaid), hint: 'AI Guardian', accent: 'gold' as const },
-  { label: 'Fraud detection', value: formatPercent(analyticsKpis.fraudDetectionRate), hint: 'AI Guardian', accent: 'green' as const },
-  { label: 'Avg payout', value: `${analyticsKpis.avgPayoutMinutes} min`, hint: 'Instant payouts', accent: 'sky' as const },
-]
+import { formatCompactCurrency, formatLakhs, formatPercent } from '../utils/format'
 
 export function AnalyticsPage() {
+  const { data } = useAppData()
+
+  if (!data?.analytics) {
+    return null
+  }
+
+  const analyticsCards = [
+    {
+      label: 'Active workers',
+      value: data.analytics.kpis.activeWorkers.toLocaleString('en-IN'),
+      hint: '↑12%',
+      accent: 'green' as const,
+    },
+    {
+      label: 'Premium / week',
+      value: formatCompactCurrency(data.analytics.kpis.weeklyPremium),
+      hint: 'Stable',
+      accent: 'sky' as const,
+    },
+    {
+      label: 'Claims paid',
+      value: formatCompactCurrency(data.analytics.kpis.claimsPaid),
+      hint: 'AI Guardian',
+      accent: 'gold' as const,
+    },
+    {
+      label: 'Fraud detection',
+      value: formatPercent(data.analytics.kpis.fraudDetectionRate),
+      hint: 'AI Guardian',
+      accent: 'green' as const,
+    },
+    {
+      label: 'Avg payout',
+      value: `${data.analytics.kpis.avgPayoutMinutes} min`,
+      hint: 'Instant payouts',
+      accent: 'sky' as const,
+    },
+  ]
+
   return (
     <motion.section
       {...pageTransition}
@@ -58,20 +89,39 @@ export function AnalyticsPage() {
           </div>
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyChartData}>
+              <BarChart data={data.analytics.weeklyChartData}>
+                <CartesianGrid
+                  stroke="#E8F2F6"
+                  strokeDasharray="3 3"
+                />
+                <XAxis
+                  dataKey="week"
+                  tick={{ fill: '#7A8EA0', fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: '#7A8EA0', fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value) => `₹${value}L`}
+                />
                 <Tooltip
                   cursor={{ fill: 'rgba(232,242,246,0.65)' }}
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: '1px solid #C6D1C7',
-                    boxShadow: '0 4px 24px rgba(13,43,62,0.08)',
-                  }}
+                  content={({ active, payload }) =>
+                    active && payload?.length ? (
+                      <div className="rounded-2xl border border-sky-light bg-white px-4 py-3 shadow-card">
+                        <p className="font-semibold text-navy">{payload[0]?.payload.week}</p>
+                        <p className="mt-1 text-sm text-muted">{formatLakhs(Number(payload[0]?.value ?? 0))}</p>
+                      </div>
+                    ) : null
+                  }
                 />
                 <Bar
                   dataKey="premium"
                   radius={[12, 12, 0, 0]}
                 >
-                  {weeklyChartData.map((entry) => (
+                  {data.analytics.weeklyChartData.map((entry) => (
                     <Cell
                       key={entry.week}
                       fill={entry.current ? '#C9A96E' : '#5BA3BE'}
@@ -92,7 +142,7 @@ export function AnalyticsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={claimsBreakdown}
+                  data={data.analytics.claimsBreakdown}
                   dataKey="value"
                   innerRadius={72}
                   outerRadius={98}
@@ -103,11 +153,13 @@ export function AnalyticsPage() {
             </ResponsiveContainer>
           </div>
           <div className="-mt-32 text-center">
-            <div className="font-serif text-5xl text-navy">62%</div>
+            <div className="font-serif text-5xl text-navy">
+              {data.analytics.claimsBreakdown[0]?.value ?? 0}%
+            </div>
             <div className="mt-2 text-sm font-semibold text-muted">Rain major</div>
           </div>
           <div className="mt-12 space-y-3">
-            {claimsBreakdown.map((item) => (
+            {data.analytics.claimsBreakdown.map((item) => (
               <div
                 key={item.name}
                 className="flex items-center justify-between text-sm"
@@ -135,7 +187,7 @@ export function AnalyticsPage() {
             </div>
           </div>
           <div className="space-y-5">
-            {fraudSignals.map((signal) => (
+            {data.analytics.fraudSignals.map((signal) => (
               <div key={signal.label}>
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-navy">{signal.label}</span>
@@ -160,7 +212,7 @@ export function AnalyticsPage() {
             <h2 className="mt-2 text-3xl">Real-time solvency</h2>
           </div>
           <div className="mt-6 space-y-5">
-            {financialHealth.map((metric) => (
+            {data.analytics.financialHealth.map((metric) => (
               <div key={metric.label}>
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="text-navy">{metric.label}</span>
@@ -181,7 +233,7 @@ export function AnalyticsPage() {
               <span>Unit value</span>
               <span>Margin</span>
             </div>
-            {unitEconomics.map((item) => (
+            {data.analytics.unitEconomics.map((item) => (
               <div
                 key={item.metric}
                 className="grid grid-cols-3 gap-4 border-t border-sky-light px-4 py-3 text-sm"

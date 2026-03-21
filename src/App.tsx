@@ -1,16 +1,37 @@
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
-import { AppLayout } from './layouts/AppLayout'
-import { LandingLayout } from './layouts/LandingLayout'
 import { useAuth } from './context/AuthContext'
-import { AlertsPage } from './pages/AlertsPage'
-import { AnalyticsPage } from './pages/AnalyticsPage'
-import { ClaimsPage } from './pages/ClaimsPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { LandingPage } from './pages/LandingPage'
-import { OnboardingPage } from './pages/OnboardingPage'
-import { PolicyPage } from './pages/PolicyPage'
-import { ProfilePage } from './pages/ProfilePage'
+
+const LandingLayout = lazy(() =>
+  import('./layouts/LandingLayout').then((module) => ({ default: module.LandingLayout })),
+)
+const AppLayout = lazy(() =>
+  import('./layouts/AppLayout').then((module) => ({ default: module.AppLayout })),
+)
+const LandingPage = lazy(() =>
+  import('./pages/LandingPage').then((module) => ({ default: module.LandingPage })),
+)
+const OnboardingPage = lazy(() =>
+  import('./pages/OnboardingPage').then((module) => ({ default: module.OnboardingPage })),
+)
+const DashboardPage = lazy(() =>
+  import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
+)
+const ClaimsPage = lazy(() =>
+  import('./pages/ClaimsPage').then((module) => ({ default: module.ClaimsPage })),
+)
+const AnalyticsPage = lazy(() =>
+  import('./pages/AnalyticsPage').then((module) => ({ default: module.AnalyticsPage })),
+)
+const PolicyPage = lazy(() =>
+  import('./pages/PolicyPage').then((module) => ({ default: module.PolicyPage })),
+)
+const AlertsPage = lazy(() =>
+  import('./pages/AlertsPage').then((module) => ({ default: module.AlertsPage })),
+)
+const ProfilePage = lazy(() =>
+  import('./pages/ProfilePage').then((module) => ({ default: module.ProfilePage })),
+)
 
 function ScrollManager() {
   const location = useLocation()
@@ -36,7 +57,18 @@ function ScrollManager() {
 
 function ProtectedRoute() {
   const location = useLocation()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-kavach px-6 text-center">
+        <div>
+          <p className="font-serif text-4xl text-navy">Kavach</p>
+          <p className="mt-3 text-sm font-medium text-muted">Restoring your protection session…</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!isAuthenticated) {
     return (
@@ -50,9 +82,37 @@ function ProtectedRoute() {
   return <Outlet />
 }
 
+function AdminRoute() {
+  const { isLoading, user } = useAuth()
+
+  if (isLoading) {
+    return null
+  }
+
+  if (user?.role !== 'admin') {
+    return (
+      <Navigate
+        replace
+        to="/dashboard"
+      />
+    )
+  }
+
+  return <Outlet />
+}
+
 function App() {
   return (
-    <>
+    <Suspense
+      fallback={
+        <div className="grid min-h-screen place-items-center bg-kavach px-6 text-center">
+          <div>
+            <p className="font-serif text-4xl text-navy">Kavach</p>
+            <p className="mt-3 text-sm font-medium text-muted">Loading your protection layer…</p>
+          </div>
+        </div>
+      }
+    >
       <ScrollManager />
       <Routes>
         <Route element={<LandingLayout />}>
@@ -63,7 +123,9 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/claims" element={<ClaimsPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/analytics" element={<AnalyticsPage />} />
+            </Route>
             <Route path="/policy" element={<PolicyPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
@@ -71,7 +133,7 @@ function App() {
         </Route>
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
-    </>
+    </Suspense>
   )
 }
 

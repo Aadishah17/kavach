@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.playwright-cli/
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/dist-export/
+mobile/web-build/

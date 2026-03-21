@@ -286,22 +286,22 @@ export const verificationSignals = [
 
 export const policyCoverage = [
   {
-    title: 'Accident Protection',
+    title: 'Rain & Flood Triggers',
     description:
-      'Coverage for on-job mishaps and minor road incidents while you work.',
-    badge: 'UP TO',
+      'Orange and red alert conditions trigger payout protection when routes are disrupted by rainfall or flooding.',
+    badge: '100% COVER',
   },
   {
-    title: 'Rain & Weather Loss',
+    title: 'Civic Shutdown Cover',
     description:
-      'Earnings protection for days when the weather prevents you from reaching targets.',
-    badge: 'WEATHER',
+      'Curfews, bandhs and verified civic restrictions unlock partial or full income protection based on severity.',
+    badge: '75% COVER',
   },
   {
-    title: 'Daily Health Allowance',
+    title: 'Heat, AQI & Fog Watch',
     description:
-      'Financial support for medical leave and unexpected illness recovery periods.',
-    badge: '₹150 / DAY',
+      'Environmental risk windows protect workers when unsafe riding conditions reduce viable working hours.',
+    badge: '50% COVER',
   },
 ]
 

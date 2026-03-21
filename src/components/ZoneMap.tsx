@@ -1,20 +1,14 @@
 import { motion } from 'framer-motion'
-import { worker } from '../data/mockData'
+import type { ZoneMapData } from '../types'
 import { cn } from '../utils/cn'
 
-const zones = [
-  { name: 'Koramangala', top: '50%', left: '34%', tone: 'bg-k-red', risk: 'High risk' },
-  { name: 'HSR Layout', top: '68%', left: '68%', tone: 'bg-k-orange', risk: 'Medium' },
-  { name: 'Indiranagar', top: '36%', left: '76%', tone: 'bg-k-green', risk: 'Clear' },
-]
-
-export function ZoneMap() {
+export function ZoneMap({ cityLabel, activeWatch, zones }: ZoneMapData) {
   return (
     <div className="panel-card overflow-hidden p-5">
       <div className="mb-5 flex items-center justify-between">
         <div>
           <p className="mono-label">Live risk zones</p>
-          <h3 className="mt-2 text-2xl font-serif text-navy">Bengaluru South</h3>
+          <h3 className="mt-2 text-2xl font-serif text-navy">{cityLabel}</h3>
         </div>
         <div className="flex flex-wrap gap-3 text-xs font-semibold text-muted">
           <span className="flex items-center gap-2">
@@ -58,7 +52,7 @@ export function ZoneMap() {
 
         <div className="absolute bottom-5 left-5 rounded-2xl bg-white/90 px-4 py-3 shadow-card backdrop-blur">
           <p className="mono-label">Active watch</p>
-          <p className="mt-1 text-sm font-semibold text-navy">{worker.zone}</p>
+          <p className="mt-1 text-sm font-semibold text-navy">{activeWatch}</p>
         </div>
       </div>
     </div>

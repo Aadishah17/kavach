@@ -1,0 +1,50 @@
+{
+  "users": [
+    {
+      "id": "user-demo",
+      "email": "demo@kavach.local",
+      "status": "active",
+      "createdAt": "2026-03-18T08:00:00.000Z",
+      "updatedAt": "2026-03-18T08:00:00.000Z",
+      "lastLoginAt": null,
+      "name": "Rahul Kumar",
+      "platform": "Swiggy",
+      "phone": "+91 98765 43210",
+      "platforms": [
+        "Swiggy",
+        "Blinkit"
+      ],
+      "city": "Bengaluru",
+      "zone": "Koramangala, Bengaluru",
+      "plan": "Kavach Standard",
+      "weeklyPremium": 49,
+      "iwi": 4000,
+      "trustScore": 92,
+      "upi": "rahul@phonepe",
+      "kycVerified": true,
+      "nextDeduction": "Monday, 24 March 2026",
+      "role": "admin"
+    }
+  ],
+  "sessions": [],
+  "profileSettingsByUser": {
+    "user-demo": [
+      {
+        "label": "Smart Alerts",
+        "value": "Notify me during peak hours",
+        "enabled": true
+      },
+      {
+        "label": "App Language",
+        "value": "English / Hindi",
+        "enabled": true,
+        "kind": "link"
+      },
+      {
+        "label": "Biometric Lock",
+        "value": "Face ID / Fingerprint enabled",
+        "enabled": true
+      }
+    ]
+  }
+}

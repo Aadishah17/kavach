@@ -3,7 +3,7 @@ import { CalendarDays, Menu, ShieldCheck, X } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { cn } from '../lib/cn'
+import { cn } from '../utils/cn'
 import { StatusPill } from './StatusPill'
 
 const landingLinks = [
@@ -23,14 +23,18 @@ export function Navbar({ isApp = false }: NavbarProps) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (isAuthenticated) {
       navigate('/dashboard')
       return
     }
 
-    loginAsDemo()
-    navigate('/dashboard')
+    try {
+      await loginAsDemo()
+      navigate('/dashboard')
+    } catch (error) {
+      console.error('Unable to start demo session', error)
+    }
   }
 
   const ctaHref = isAuthenticated ? '/dashboard' : '/signup'
@@ -85,10 +89,12 @@ export function Navbar({ isApp = false }: NavbarProps) {
                 <span className="text-sm text-muted">{user?.zone ?? 'Coverage Monitor'}</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    logout()
-                    navigate('/')
-                  }}
+                  onClick={() =>
+                    void (async () => {
+                      await logout()
+                      navigate('/')
+                    })()
+                  }
                   className="text-sm font-medium text-muted transition hover:text-navy"
                 >
                   Log out
@@ -97,7 +103,7 @@ export function Navbar({ isApp = false }: NavbarProps) {
             ) : (
               <button
                 type="button"
-                onClick={handleLogin}
+                onClick={() => void handleLogin()}
                 className="text-sm font-medium text-muted transition hover:text-navy"
               >
                 Log in
@@ -190,11 +196,13 @@ export function Navbar({ isApp = false }: NavbarProps) {
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          logout()
-                          setOpen(false)
-                          navigate('/')
-                        }}
+                        onClick={() =>
+                          void (async () => {
+                            await logout()
+                            setOpen(false)
+                            navigate('/')
+                          })()
+                        }
                         className="w-full rounded-2xl border border-white/10 px-5 py-4 text-left text-lg text-white/80"
                       >
                         Log out
@@ -205,7 +213,7 @@ export function Navbar({ isApp = false }: NavbarProps) {
                       type="button"
                       onClick={() => {
                         setOpen(false)
-                        handleLogin()
+                        void handleLogin()
                       }}
                       className="mt-6 w-full rounded-2xl border border-white/10 px-5 py-4 text-left text-lg text-white/80"
                     >

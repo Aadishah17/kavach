@@ -3,27 +3,18 @@ import { CalendarDays, MapPin } from 'lucide-react'
 import { KpiCard } from '../components/KpiCard'
 import { StatusPill } from '../components/StatusPill'
 import { ZoneMap } from '../components/ZoneMap'
+import { useAppData } from '../context/AppDataContext'
 import { useAuth } from '../context/AuthContext'
-import { activeAlert, dashboardAlerts, payoutHistory, worker } from '../data/mockData'
 import { pageTransition } from '../lib/motion'
 import { formatSignedCurrency } from '../utils/format'
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const profile = user ?? worker
+  const { data } = useAppData()
 
-  const cards = [
-    { label: 'Payout this week', value: '₹571', hint: '↑ Tuesday rain event', accent: 'green' as const },
-    { label: 'Trust score', value: `${profile.trustScore}`, hint: '↑ Excellent', accent: 'sky' as const },
-    { label: 'Days protected', value: '3 days', hint: 'Mon–Wed covered', accent: 'gold' as const },
-    {
-      label: 'Insured weekly income',
-      value: `₹${profile.iwi.toLocaleString('en-IN')}`,
-      hint: 'Standard plan',
-      accent: 'navy' as const,
-      inverse: true,
-    },
-  ]
+  if (!user || !data) {
+    return null
+  }
 
   return (
     <motion.div
@@ -32,25 +23,25 @@ export function DashboardPage() {
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="font-serif text-[clamp(2.4rem,5vw,4.2rem)] text-navy">Good morning 👋 {profile.name}</h1>
+          <h1 className="font-serif text-[clamp(2.4rem,5vw,4.2rem)] text-navy">Good morning 👋 {user.name}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
             <span className="inline-flex items-center gap-2">
               <MapPin className="h-4 w-4 text-sky" />
-              {profile.zone} · {profile.platform} fleet partner
+              {user.zone} · {user.platform} fleet partner
             </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-2 rounded-full border border-sky-light bg-white px-4 py-2 text-sm text-muted">
             <CalendarDays className="h-4 w-4 text-sky" />
-            18 Mar - 24 Mar 2026
+            {data.dashboard.dateRange}
           </span>
-          <StatusPill status="safe">Coverage Active</StatusPill>
+          <StatusPill status={data.dashboard.coverageStatus}>Coverage Active</StatusPill>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => (
+        {data.dashboard.kpis.map((card) => (
           <KpiCard
             key={card.label}
             {...card}
@@ -59,7 +50,7 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
-        <ZoneMap />
+        <ZoneMap {...data.dashboard.zoneMap} />
         <div className="panel-card p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
@@ -69,7 +60,7 @@ export function DashboardPage() {
             <StatusPill status="active">3 live</StatusPill>
           </div>
           <div className="space-y-4">
-            {dashboardAlerts.map((alert) => (
+            {data.dashboard.alerts.map((alert) => (
               <motion.article
                 key={alert.title}
                 whileHover={{ y: -3 }}
@@ -90,8 +81,8 @@ export function DashboardPage() {
           </div>
           <div className="mt-5 rounded-[24px] bg-navy p-5 text-white">
             <p className="mono-label !text-sky-light">Latest trigger</p>
-            <h3 className="mt-3 font-serif text-3xl text-gold">₹{activeAlert.payoutAmount}</h3>
-            <p className="mt-2 text-sm text-sky-light/80">{activeAlert.condition}</p>
+            <h3 className="mt-3 font-serif text-3xl text-gold">₹{data.dashboard.activeAlert.payoutAmount}</h3>
+            <p className="mt-2 text-sm text-sky-light/80">{data.dashboard.activeAlert.condition}</p>
           </div>
         </div>
       </div>
@@ -113,7 +104,7 @@ export function DashboardPage() {
             <span>Amount</span>
             <span>Status</span>
           </div>
-          {payoutHistory.map((entry) => (
+          {data.dashboard.payoutHistory.map((entry) => (
             <div
               key={`${entry.date}-${entry.type}`}
               className="table-row-ledger border-b border-sky-light/60 last:border-b-0"

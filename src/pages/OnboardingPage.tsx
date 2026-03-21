@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, ShieldCheck } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { onboardingChecklist, pricingTiers, worker } from '../data/mockData'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { onboardingChecklist, pricingTiers } from '../data/mockData'
 import { useAuth } from '../context/AuthContext'
 import { pageTransition } from '../lib/motion'
-import type { WorkerProfile } from '../types'
+import { ApiError } from '../utils/api'
 
 const platformOptions = ['Swiggy', 'Zomato', 'Blinkit', 'Amazon Flex', 'Other']
 
@@ -13,12 +13,6 @@ const zoneSuggestions: Record<string, string[]> = {
   Bengaluru: ['Koramangala Central', 'HSR Layout Hub', 'Indiranagar East'],
   Delhi: ['Saket South', 'Karol Bagh Core', 'Dwarka West'],
   Mumbai: ['Andheri West', 'Powai Lakeside', 'Bandra East'],
-}
-
-const planIncomeMap: Record<string, number> = {
-  Basic: 2500,
-  Standard: 4000,
-  Pro: 6500,
 }
 
 type FormState = {
@@ -33,9 +27,11 @@ type FormState = {
 
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { completeOnboarding } = useAuth()
   const [step, setStep] = useState(0)
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState<FormState>({
     name: '',
     phone: '',
@@ -46,8 +42,11 @@ export function OnboardingPage() {
     upi: '',
   })
 
-  const suggestions = zoneSuggestions[form.city] ?? ['Auto-detecting zone...']
-  const selectedPlan = pricingTiers.find((tier) => tier.tier === form.plan) ?? pricingTiers[1]
+  const suggestions = useMemo(
+    () => zoneSuggestions[form.city] ?? ['Auto-detecting zone...'],
+    [form.city],
+  )
+  const redirectTarget = searchParams.get('redirect') ?? '/dashboard'
 
   const steps = useMemo(
     () => [
@@ -223,7 +222,7 @@ export function OnboardingPage() {
     return ''
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const nextError = validateCurrentStep()
 
     if (nextError) {
@@ -234,23 +233,28 @@ export function OnboardingPage() {
     setError('')
 
     if (step === steps.length - 1) {
-      const profile: WorkerProfile = {
-        ...worker,
-        name: form.name,
-        phone: form.phone,
-        platform: form.platforms[0] ?? 'Swiggy',
-        platforms: form.platforms,
-        city: form.city,
-        zone: `${form.zone}, ${form.city}`,
-        plan: `Kavach ${form.plan}`,
-        weeklyPremium: selectedPlan.price,
-        iwi: planIncomeMap[form.plan],
-        upi: form.upi,
-      }
+      setIsSubmitting(true)
 
-      console.info('Kavach onboarding payload', profile)
-      completeOnboarding(profile)
-      navigate('/dashboard')
+      try {
+        await completeOnboarding({
+          name: form.name,
+          phone: form.phone,
+          platforms: form.platforms,
+          city: form.city,
+          zone: form.zone,
+          plan: form.plan as 'Basic' | 'Standard' | 'Pro',
+          upi: form.upi,
+        })
+        navigate(redirectTarget === '/analytics' ? '/dashboard' : redirectTarget)
+      } catch (submissionError) {
+        setError(
+          submissionError instanceof ApiError
+            ? submissionError.message
+            : 'We could not activate your Kavach account. Please try again.',
+        )
+      } finally {
+        setIsSubmitting(false)
+      }
       return
     }
 
@@ -349,10 +353,11 @@ export function OnboardingPage() {
 
               <button
                 type="button"
-                onClick={handleNext}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-navy px-6 text-sm font-semibold text-white transition hover:bg-navy-mid"
+                onClick={() => void handleNext()}
+                disabled={isSubmitting}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-navy px-6 text-sm font-semibold text-white transition hover:bg-navy-mid disabled:cursor-not-allowed disabled:bg-navy-mid/70"
               >
-                {step === steps.length - 1 ? 'Setup AutoPay & Activate' : 'Next'}
+                {step === steps.length - 1 ? (isSubmitting ? 'Activating…' : 'Setup AutoPay & Activate') : 'Next'}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>

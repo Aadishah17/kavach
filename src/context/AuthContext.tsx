@@ -1,59 +1,84 @@
-import { createContext, type ReactNode, useContext, useMemo, useState } from 'react'
-import { worker } from '../data/mockData'
-import type { WorkerProfile } from '../types'
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react'
+import { getSession, getStoredToken, loginDemo, logoutSession, setStoredToken, signup } from '../utils/api'
+import type { SignupPayload, WorkerProfile } from '../types'
 
 type AuthContextValue = {
   user: WorkerProfile | null
+  token: string | null
   isAuthenticated: boolean
-  loginAsDemo: () => void
-  completeOnboarding: (profile: WorkerProfile) => void
-  logout: () => void
+  isLoading: boolean
+  loginAsDemo: () => Promise<void>
+  completeOnboarding: (profile: SignupPayload) => Promise<void>
+  logout: () => Promise<void>
 }
-
-const STORAGE_KEY = 'kavach:user'
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function readStoredUser() {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  const stored = window.localStorage.getItem(STORAGE_KEY)
-
-  if (!stored) {
-    return null
-  }
-
-  try {
-    return JSON.parse(stored) as WorkerProfile
-  } catch {
-    window.localStorage.removeItem(STORAGE_KEY)
-    return null
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<WorkerProfile | null>(() => readStoredUser())
+  const [token, setToken] = useState<string | null>(() => getStoredToken())
+  const [user, setUser] = useState<WorkerProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const restoreSession = async () => {
+      if (!token) {
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(true)
+
+      try {
+        const response = await getSession(token)
+        setUser(response.user)
+      } catch {
+        setToken(null)
+        setUser(null)
+        setStoredToken(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void restoreSession()
+  }, [token])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
+      token,
       isAuthenticated: Boolean(user),
-      loginAsDemo: () => {
-        setUser(worker)
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(worker))
+      isLoading,
+      loginAsDemo: async () => {
+        const response = await loginDemo()
+        setUser(response.user)
+        setToken(response.token)
+        setStoredToken(response.token)
       },
-      completeOnboarding: (profile) => {
-        setUser(profile)
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+      completeOnboarding: async (profile) => {
+        const response = await signup(profile)
+        setUser(response.user)
+        setToken(response.token)
+        setStoredToken(response.token)
       },
-      logout: () => {
+      logout: async () => {
+        const currentToken = token
         setUser(null)
-        window.localStorage.removeItem(STORAGE_KEY)
+        setToken(null)
+        setStoredToken(null)
+        setIsLoading(false)
+
+        if (currentToken) {
+          try {
+            await logoutSession(currentToken)
+          } catch {
+            // Best effort logout; local session is already cleared.
+          }
+        }
       },
     }),
-    [user],
+    [isLoading, token, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
