@@ -1,0 +1,7 @@
+node_modules
+dist
+flutter_kavach
+mobile
+.git
+.github
+*.log

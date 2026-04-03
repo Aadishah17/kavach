@@ -5,7 +5,10 @@ import express from 'express'
 import { profileSettingsPayloadSchema, signupSchema } from '../packages/shared/src/contracts.js'
 import { buildSignupUser, staticAppData } from './seed.js'
 import { SqliteStore } from './store.js'
+import { FirestoreStore } from './firestore-store.js'
 import type { StoredUser } from './types.js'
+
+type Store = SqliteStore | FirestoreStore
 
 export type KavachServerPaths = {
   rootPath: string
@@ -39,7 +42,10 @@ export function createKavachServer(options: KavachServerOptions = {}) {
   const webDistPath = options.webDistPath ?? paths.webDistPath
   const serveStatic = options.serveStatic ?? true
 
-  const store = new SqliteStore(dbPath, { legacyJsonPath })
+  const useFirestore = process.env.USE_FIRESTORE === 'true'
+  const store: Store = useFirestore
+    ? new FirestoreStore()
+    : new SqliteStore(dbPath, { legacyJsonPath })
   const app = express()
 
   app.use(express.json({ limit: '1mb' }))
@@ -319,7 +325,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
   }
 }
 
-async function authenticateRequest(store: SqliteStore, req: express.Request) {
+async function authenticateRequest(store: Store, req: express.Request) {
   const token = extractToken(req)
   if (!token) {
     return null
@@ -342,7 +348,7 @@ async function authenticateRequest(store: SqliteStore, req: express.Request) {
   }
 }
 
-async function requireAuth(store: SqliteStore, req: express.Request, res: express.Response) {
+async function requireAuth(store: Store, req: express.Request, res: express.Response) {
   const auth = await authenticateRequest(store, req)
   if (!auth) {
     res.status(401).json({
@@ -388,7 +394,7 @@ function publicUser(user: StoredUser) {
   }
 }
 
-async function buildAppData(store: SqliteStore, user: StoredUser) {
+async function buildAppData(store: Store, user: StoredUser) {
   const settings = await store.getProfileSettings(user.id)
 
   return {
