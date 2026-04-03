@@ -28,3 +28,16 @@ mobile/.expo/
 mobile/dist/
 mobile/dist-export/
 mobile/web-build/
+
+# Flutter
+flutter_kavach/build/
+flutter_kavach/.dart_tool/
+flutter_kavach/.flutter-plugins
+flutter_kavach/.flutter-plugins-dependencies
+flutter_kavach/android/.gradle/
+flutter_kavach/ios/Pods/
+
+# Temp files
+git_status.txt
+server-runtime.*.log
+server-test.*.log

@@ -1,31 +1,10 @@
-export type Role = 'worker' | 'admin'
+import type { PlanName, ProfileSetting, WorkerProfile } from '../packages/shared/src/types.js'
 
-export type PlanName = 'Basic' | 'Standard' | 'Pro'
-export type ProfileSetting = {
-  label: string
-  value: string
-  enabled: boolean
-  kind?: 'link'
-}
+export type { PlanName, ProfileSetting, WorkerProfile }
 
-export type WorkerProfile = {
-  name: string
-  platform: string
-  phone: string
-  platforms: string[]
-  city: string
-  zone: string
-  plan: string
-  weeklyPremium: number
-  iwi: number
-  trustScore: number
-  upi: string
-  kycVerified: boolean
-  nextDeduction: string
-  role: Role
-}
+export type BaseWorkerProfile = Omit<WorkerProfile, 'id'>
 
-export type StoredUser = WorkerProfile & {
+export type StoredUser = BaseWorkerProfile & {
   id: string
   email?: string
   status: 'active'
@@ -35,28 +14,15 @@ export type StoredUser = WorkerProfile & {
 }
 
 export type SessionRecord = {
-  token: string
+  id: string
   userId: string
   createdAt: string
   lastSeenAt: string
+  expiresAt: string
   revokedAt: string | null
 }
 
-export type Database = {
-  users: StoredUser[]
-  sessions: SessionRecord[]
-  profileSettingsByUser: Record<string, ProfileSetting[]>
-}
-
-export type SignupInput = {
-  name: string
-  phone: string
-  platforms: string[]
-  city: string
-  zone: string
-  plan: PlanName
-  upi: string
-}
+export type SignupInput = import('../packages/shared/src/types.js').SignupPayload
 
 export type AuthContext = {
   user: StoredUser

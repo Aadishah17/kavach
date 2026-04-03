@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "types": ["node", "express"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts", "../packages/shared/**/*.ts"]
 }

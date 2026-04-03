@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Database, PlanName, ProfileSetting, SignupInput, StoredUser, WorkerProfile } from './types.js'
+import type { BaseWorkerProfile, PlanName, ProfileSetting, SignupInput, StoredUser } from './types.js'
 
 export const planCatalog: Record<
   PlanName,
@@ -22,7 +22,7 @@ export const planCatalog: Record<
   },
 }
 
-export const demoProfile: WorkerProfile = {
+export const demoProfile: BaseWorkerProfile = {
   name: 'Rahul Kumar',
   platform: 'Swiggy',
   phone: '+91 98765 43210',
@@ -425,14 +425,4 @@ export function buildSignupUser(input: SignupInput) {
   }
 
   return user
-}
-
-export function createInitialDatabase(): Database {
-  return {
-    users: [buildDemoUser()],
-    sessions: [],
-    profileSettingsByUser: {
-      'user-demo': defaultProfileSettings,
-    },
-  }
 }

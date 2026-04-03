@@ -2,63 +2,70 @@
 
 ## Inspiration
 
-Gig delivery workers in India face income shocks almost every week because of heavy rain, flooding, pollution spikes, curfews, traffic lockdowns, and civic disruptions. Most of them have no practical insurance product that responds fast enough to match the pace of their work. Kavach was inspired by that gap: a calm, reliable parametric income shield built specifically for workers on platforms like Swiggy, Zomato, Blinkit, and Amazon Flex.
+Gig delivery workers in India lose income to rain, flooding, pollution spikes, curfews, and civic disruptions, but most insurance products are too slow, too generic, or too complicated to help in the moment. Kavach was built as a calmer alternative: parametric income protection designed around how delivery workers actually earn, move, and get paid.
 
 ## What it does
 
-Kavach is an AI-powered parametric income insurance platform for gig workers.
+Kavach is a full-stack parametric income insurance product demo for gig workers on platforms like Swiggy, Zomato, Blinkit, and Amazon Flex.
 
-It includes:
+It currently includes:
 
-- A public landing page that explains the product clearly
-- A guided onboarding flow that takes a worker from signup to activation
-- A protected worker dashboard showing payouts, trust score, and active zone intelligence
-- A claims interface with automated payout status and AI trust verification
-- An analytics surface for admin-style monitoring of premiums, claims, and fraud signals
-- Policy, alerts, and profile pages to complete the product experience
+- A public marketing website that explains the product, coverage triggers, pricing, and trust model
+- A guided onboarding flow for worker signup and plan activation
+- A protected worker dashboard with payouts, coverage status, alerts, and risk visibility
+- A claims and payouts experience with trust-score verification signals
+- An admin analytics view for premiums, claims, fraud signals, and financial health
+- Policy, alerts, and profile flows for the web app
+- A mobile app companion built with React Native and Expo
+- A real backend with persistent users, sessions, and profile settings stored in SQLite
 
 ## How we built it
 
-We built Kavach as a modern frontend web product using:
+We built Kavach as a shared full-stack codebase with separate web, backend, and mobile surfaces.
 
-- **React**
-- **TypeScript**
-- **Vite**
-- **Tailwind CSS**
-- **Framer Motion**
-- **React Router**
-- **Recharts**
+- **Web:** React 18, TypeScript, Vite, Tailwind CSS, Framer Motion, React Router, Recharts
+- **Backend:** Express 5, TypeScript, Zod validation, SQLite via Node's built-in `node:sqlite`
+- **Mobile:** React Native, Expo, TypeScript
+- **Shared contracts:** a dedicated `packages/shared` module that holds API and domain types used by the server, web app, and mobile app
 
-The website and app were designed around a unified brand system using **DM Serif Display**, **DM Sans**, **Space Mono**, and a tightly controlled palette of navy, sky, gold, green, orange, and red. We used mock parametric insurance data to simulate live payouts, claims, trust scoring, alerts, and underwriting metrics.
+The backend now handles:
+
+- Demo login and worker signup
+- Persistent session creation and revocation
+- Role-based access for worker versus admin routes
+- Profile settings storage and retrieval
+- Shared bootstrap data for dashboard, claims, analytics, policy, alerts, and profile screens
+
+On the frontend side, we used a unified Kavach design system built around **DM Serif Display**, **DM Sans**, **Space Mono**, and a tightly controlled navy, sky, gold, green, orange, and red palette to keep the product trustworthy and visually consistent across both web and mobile.
 
 ## Challenges we ran into
 
-- Translating the hackathon concept into both a polished **marketing site** and a believable **product dashboard**
-- Keeping the UI visually premium without drifting away from the strict brand constraints
-- Making the protected app routes feel complete even without a backend
-- Designing charts, alerts, claims, and coverage flows that felt real enough for a demo
-- Balancing desktop richness with mobile responsiveness for the app layout
+- Designing both a convincing public brand experience and a believable operational product in the same hackathon repo
+- Keeping web and mobile data contracts aligned while the product surface kept expanding
+- Replacing the early demo JSON persistence with a real database-backed session flow without breaking the existing app
+- Making the admin analytics experience feel useful while still keeping the worker-facing flows simple
+- Preserving visual polish across landing, dashboard, claims, onboarding, and mobile screens without drifting away from the brand rules
 
 ## Accomplishments that we're proud of
 
-- Built a full product story instead of a single landing page
-- Created a coherent design language across marketing and app surfaces
-- Shaped the product around a real and underserved user group
-- Turned a complex insurance idea into something easy to understand in minutes
-- Added trust-score, payout, and disruption-monitoring concepts that make the demo feel product-ready
+- Built a real multi-surface product instead of stopping at a landing page
+- Added a working backend with persistent SQLite storage, session auth, and role gates
+- Extracted shared API and domain types into one package so web, backend, and mobile stay aligned
+- Delivered both a browser experience and a mobile app from the same product system
+- Shaped the product story around a real underserved user group and a practical insurance mechanism
 
 ## What we learned
 
-- Parametric insurance becomes much easier to explain when the UI focuses on triggers, speed, and trust
-- Delivery workers need products that feel operational, not corporate
-- A strong design system makes it easier to scale from homepage storytelling to dashboard UX
-- Even with mock data, the product feels far more convincing when claims, alerts, and payouts are all connected
+- Parametric insurance becomes much easier to understand when the product focuses on triggers, speed, and payout certainty instead of policy jargon
+- Shared contracts matter early once web, backend, and mobile start moving in parallel
+- Even hackathon apps feel much more credible when auth, persistence, and role-based behavior are actually wired end to end
+- Strong design constraints make it easier to scale from storytelling pages into operational product UX
 
 ## What's next for Kavach
 
-- Add backend services for real onboarding, auth, and persistent worker profiles
-- Integrate live weather, AQI, mobility, and civic disruption data feeds
-- Build real payout workflows through UPI-compatible rails
-- Expand coverage logic for more cities, more platforms, and more trigger types
-- Add multilingual support and deeper worker personalization
-- Pilot the experience with actual delivery workers and refine the product from field feedback
+- Integrate live weather, AQI, mobility, and civic disruption feeds instead of static demo data
+- Replace local/demo-only identity with production-grade authentication and secure deployment configuration
+- Add real payout orchestration through UPI-compatible settlement rails
+- Move from SQLite demo persistence to managed production infrastructure for pilots
+- Add multilingual support, worker language preferences, and city-specific rollout logic
+- Expand the mobile app with deeper navigation, notifications, and offline-ready worker flows
