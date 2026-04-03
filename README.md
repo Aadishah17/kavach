@@ -76,6 +76,138 @@ kavach/
 | **Deployment** | Docker, Google Cloud Run |
 | **CI/CD** | GitHub Actions |
 
+### System Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph Clients["Client Applications"]
+        WEB["🌐 React Web App<br/>Vite + Tailwind CSS"]
+        MOB["📱 Flutter Mobile App<br/>iOS & Android"]
+    end
+
+    subgraph API["Express 5 API Server"]
+        ROUTES["Route Handler<br/>/api/*"]
+        AUTH["Auth Middleware<br/>Token Validation"]
+        ZOD["Zod Validation<br/>Request Contracts"]
+    end
+
+    subgraph Data["Data Layer"]
+        SQLITE["💾 SQLite Store<br/>Local Development"]
+        FIRE["☁️ Cloud Firestore<br/>Production"]
+    end
+
+    subgraph External["External Services"]
+        IMD["🌧️ IMD Weather API"]
+        AQI["🌫️ CPCB AQI Feed"]
+        UPI["💳 UPI Settlement"]
+    end
+
+    WEB --> ROUTES
+    MOB --> ROUTES
+    ROUTES --> AUTH
+    AUTH --> ZOD
+    ZOD --> SQLITE
+    ZOD --> FIRE
+    ROUTES -.-> IMD
+    ROUTES -.-> AQI
+    ROUTES -.-> UPI
+
+    style Clients fill:#0A1628,stroke:#C9A96E,color:#fff
+    style API fill:#1a2744,stroke:#4AADE5,color:#fff
+    style Data fill:#0d1f3c,stroke:#1E7E5E,color:#fff
+    style External fill:#1a1a2e,stroke:#C9A96E,color:#fff
+```
+
+### Parametric Payout Flow
+
+```mermaid
+flowchart LR
+    A["🌧️ Weather Event<br/>Detected"] --> B{"Parametric<br/>Threshold<br/>Crossed?"}
+    B -->|No| C["📊 Monitor<br/>Continue Watching"]
+    B -->|Yes| D["🔍 AI Trust Score<br/>Fraud Check"]
+    D --> E{"Score ≥ 80?"}
+    E -->|Yes| F["✅ Auto-Approve<br/>Payout"]
+    E -->|No| G["👤 Manual Review<br/>Queue"]
+    F --> H["💸 UPI Instant<br/>Transfer"]
+    G --> I["🧑‍💼 Claims<br/>Concierge"]
+    H --> J["📱 Push Notification<br/>to Worker"]
+    I --> J
+
+    style A fill:#B83232,stroke:#fff,color:#fff
+    style D fill:#C9A96E,stroke:#fff,color:#000
+    style F fill:#1E7E5E,stroke:#fff,color:#fff
+    style H fill:#4AADE5,stroke:#fff,color:#fff
+```
+
+### User Journey Flowchart
+
+```mermaid
+flowchart TD
+    START["👋 Worker Visits<br/>Kavach Landing Page"] --> LEARN["📖 Learns About<br/>Parametric Coverage"]
+    LEARN --> ONBOARD["📝 Onboarding Flow<br/>4-Step Signup"]
+
+    subgraph Onboarding["Guided Onboarding"]
+        ONBOARD --> S1["1️⃣ Identity<br/>Name + Phone"]
+        S1 --> S2["2️⃣ Platforms<br/>Swiggy, Zomato..."]
+        S2 --> S3["3️⃣ Coverage Plan<br/>Basic / Standard / Pro"]
+        S3 --> S4["4️⃣ Activate<br/>UPI + Zone Selection"]
+    end
+
+    S4 --> DASH["🏠 Worker Dashboard"]
+
+    subgraph AppScreens["App Experience"]
+        DASH --> TRUST["🛡️ Trust Score<br/>92/100"]
+        DASH --> ALERTS["🔔 Live Alerts<br/>Rain, Pollution, Bandh"]
+        DASH --> CLAIMS["📋 Claims History<br/>Payouts & Premiums"]
+        DASH --> PROFILE["👤 Profile<br/>Settings & Documents"]
+    end
+
+    ALERTS --> PAYOUT["💰 Auto-Payout<br/>< 4 minutes via UPI"]
+    TRUST --> PAYOUT
+
+    style START fill:#0A1628,stroke:#C9A96E,color:#fff
+    style Onboarding fill:#0d1f3c,stroke:#4AADE5,color:#fff
+    style AppScreens fill:#0d1f3c,stroke:#1E7E5E,color:#fff
+    style PAYOUT fill:#1E7E5E,stroke:#fff,color:#fff
+```
+
+### Auth & Data Flow
+
+```mermaid
+sequenceDiagram
+    participant W as 👷 Worker
+    participant App as 📱 App / 🌐 Web
+    participant API as ⚡ Express API
+    participant DB as 💾 SQLite / ☁️ Firestore
+
+    Note over W,DB: Signup Flow
+    W->>App: Enter name, phone, platform, plan
+    App->>API: POST /api/auth/signup
+    API->>API: Zod validate payload
+    API->>DB: upsertUser(workerProfile)
+    API->>DB: createSession(userId)
+    DB-->>API: {token, session}
+    API-->>App: 201 {token, user, appData}
+    App-->>W: Dashboard renders
+
+    Note over W,DB: Authenticated Request
+    W->>App: Open Claims tab
+    App->>API: GET /api/me [X-Session-Token]
+    API->>DB: getSession(tokenHash)
+    DB-->>API: {session, userId}
+    API->>DB: getUserById(userId)
+    API->>DB: getProfileSettings(userId)
+    DB-->>API: {user, settings}
+    API-->>App: 200 {user, appData}
+    App-->>W: Claims + payouts displayed
+
+    Note over W,DB: Payout Event
+    API->>API: Weather trigger detected
+    API->>DB: Log payout event
+    API-->>App: Push alert notification
+    App-->>W: "₹571 credited via UPI"
+```
+
 ---
 
 ## 🚀 Quick Start
