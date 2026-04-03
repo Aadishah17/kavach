@@ -40,7 +40,7 @@ Gig delivery workers on platforms like **Swiggy, Zomato, Blinkit, and Amazon Fle
 
 ## 🏗 Architecture
 
-```
+```text
 kavach/
 ├── src/                    # React 18 web frontend (Vite + Tailwind CSS)
 ├── server/                 # Express 5 API server (TypeScript)
@@ -286,7 +286,7 @@ flutter run -d android    # Android Emulator
 
 ### Flutter Project Structure
 
-```
+```text
 flutter_kavach/lib/
 ├── main.dart              # App entry, Provider setup, theme
 ├── models/
