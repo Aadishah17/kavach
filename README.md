@@ -420,4 +420,4 @@ This project was built for educational and demonstration purposes.
 
 ---
 
-Built with ❤️ for India's 15M+ gig workers
+Built for India's 15M+ gig workers
