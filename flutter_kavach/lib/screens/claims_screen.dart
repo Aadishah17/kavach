@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
-import '../models/app_data.dart';
 import '../theme/app_theme.dart';
 
 class ClaimsScreen extends StatelessWidget {
@@ -10,26 +9,65 @@ class ClaimsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
-    final claims = provider.appData?.recentClaims ?? [];
+    final data = provider.appData;
+    final payouts = data?.payoutHistory ?? [];
+    final premiums = data?.premiumHistory ?? [];
+
+    // Combine and interleave for a unified timeline
+    final allItems = <_TimelineEntry>[];
+    for (final p in payouts) {
+      allItems.add(_TimelineEntry(
+        label: p.label,
+        amount: p.amount,
+        date: p.date,
+        status: p.status,
+        isPayout: true,
+      ));
+    }
+    for (final p in premiums) {
+      allItems.add(_TimelineEntry(
+        label: p.label,
+        amount: p.amount,
+        date: p.date,
+        status: p.status,
+        isPayout: false,
+      ));
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Payout History & Claims'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTrustSignals(context),
-            const SizedBox(height: 32),
-            Text('Recent Events', style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 16),
-            if (claims.isEmpty)
-              const Center(child: Text("No claims or payouts yet.")),
-            ...claims.map((c) => _buildClaimCard(context, c)),
-          ],
+      body: RefreshIndicator(
+        color: AppTheme.navy,
+        onRefresh: () => provider.loadAppData(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTrustSignals(context),
+              const SizedBox(height: 32),
+              Text('Recent Events', style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 16),
+              if (allItems.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        Icon(Icons.receipt_long, size: 48, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                        const SizedBox(height: 12),
+                        const Text('No claims or payouts yet.'),
+                      ],
+                    ),
+                  ),
+                ),
+              ...allItems.map((entry) => _buildClaimCard(context, entry)),
+            ],
+          ),
         ),
       ),
     );
@@ -78,10 +116,9 @@ class ClaimsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildClaimCard(BuildContext context, Claim claim) {
-    final isDeduction = claim.title.toLowerCase().contains("premium");
-    final amountColor = isDeduction ? AppTheme.textPrimary : AppTheme.green;
-    final sign = isDeduction ? "-" : "+";
+  Widget _buildClaimCard(BuildContext context, _TimelineEntry entry) {
+    final amountColor = entry.isPayout ? AppTheme.green : AppTheme.textPrimary;
+    final sign = entry.isPayout ? '+' : '-';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -98,15 +135,31 @@ class ClaimsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(claim.title, style: Theme.of(context).textTheme.titleLarge),
+                Text(entry.label, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
-                Text('${claim.status} • ${claim.date}', style: Theme.of(context).textTheme.labelLarge),
+                Text('${entry.status} • ${entry.date}', style: Theme.of(context).textTheme.labelLarge),
               ],
             ),
           ),
-          Text('$sign₹${claim.amount}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: amountColor)),
+          Text('$sign₹${entry.amount}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: amountColor)),
         ],
       ),
     );
   }
+}
+
+class _TimelineEntry {
+  final String label;
+  final String amount;
+  final String date;
+  final String status;
+  final bool isPayout;
+
+  _TimelineEntry({
+    required this.label,
+    required this.amount,
+    required this.date,
+    required this.status,
+    required this.isPayout,
+  });
 }

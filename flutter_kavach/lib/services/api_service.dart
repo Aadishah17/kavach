@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io' show Platform;
 
 class ApiService {
+  static const String _tokenKey = 'kavach_session_token';
+
   // Use 10.0.2.2 for Android Emulator, localhost for iOS simulator / web
   static String get baseUrl {
     try {
@@ -16,15 +18,107 @@ class ApiService {
     return 'http://localhost:8787/api';
   }
 
-  static Future<Map<String, String>> _getHeaders() async {
+  static Future<String?> getSavedToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    return prefs.getString(_tokenKey);
+  }
+
+  static Future<void> _saveToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+  }
+
+  static Future<void> clearToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+  }
+
+  static Future<Map<String, String>> _getHeaders() async {
+    final token = await getSavedToken();
     return {
       'Content-Type': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
+      if (token case final t?) 'X-Session-Token': t,
     };
   }
 
+  /// Demo login — calls POST /api/auth/demo
+  /// Returns the full auth response {token, user} or throws.
+  static Future<Map<String, dynamic>> demoLogin() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/demo'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      final token = data['token'] as String?;
+      if (token != null) {
+        await _saveToken(token);
+      }
+      return data;
+    } else {
+      throw Exception('Demo login failed: ${response.statusCode}');
+    }
+  }
+
+  /// Signup — calls POST /api/auth/signup
+  static Future<Map<String, dynamic>> signup({
+    required String name,
+    required String phone,
+    required String platform,
+    String plan = 'Kavach Standard',
+    String zone = 'Koramangala',
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/signup'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'name': name,
+        'phone': phone,
+        'platform': platform,
+        'plan': plan,
+        'zone': zone,
+      }),
+    );
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      final token = data['token'] as String?;
+      if (token != null) {
+        await _saveToken(token);
+      }
+      return data;
+    } else {
+      throw Exception('Signup failed: ${response.statusCode}');
+    }
+  }
+
+  /// Restore session — calls GET /api/auth/session with saved token
+  static Future<Map<String, dynamic>?> restoreSession() async {
+    final token = await getSavedToken();
+    if (token == null) return null;
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/session'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': token,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        await clearToken();
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get full app data — calls GET /api/app-data (authenticated)
   static Future<Map<String, dynamic>> getAppData() async {
     final response = await http.get(
       Uri.parse('$baseUrl/app-data'),
@@ -32,36 +126,25 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else if (response.statusCode == 401) {
+      await clearToken();
+      throw Exception('Session expired. Please login again.');
     } else {
       throw Exception('Failed to load app data: ${response.statusCode}');
     }
   }
 
-  static Future<bool> sendOtp(String phone) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/send-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'phone': phone}),
-    );
-    return response.statusCode == 200;
-  }
-
-  static Future<String?> verifyOtp(String phone, String otp) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/verify-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'phone': phone, 'otp': otp}),
-    );
-    
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['token'] != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', data['token']);
-        return data['token'];
-      }
+  /// Logout — calls POST /api/auth/logout
+  static Future<void> logout() async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/auth/logout'),
+        headers: await _getHeaders(),
+      );
+    } catch (_) {
+      // Best effort
     }
-    return null;
+    await clearToken();
   }
 }

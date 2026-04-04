@@ -15,27 +15,57 @@ class DashboardScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.navy)));
     }
 
-    if (provider.error != null && data == null) {
-      return Scaffold(body: Center(child: Text('Error: ${provider.error}')));
+    if (data == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 48, color: AppTheme.textSecondary),
+              const SizedBox(height: 16),
+              Text('Unable to load data', style: Theme.of(context).textTheme.bodyLarge),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => provider.loadAppData(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context, data?.userName ?? '', data?.platform ?? ''),
-              const SizedBox(height: 32),
-              _buildTrustScoreCard(context, data?.trustScore ?? 0, data?.trustStatus ?? ''),
-              const SizedBox(height: 24),
-              _buildIncomeCard(context, data?.insuredIncome ?? 0),
-              const SizedBox(height: 24),
-              if (data != null && data.activeAlerts.isNotEmpty)
-                _buildActiveAlertCard(context, data.activeAlerts.first.title, data.activeAlerts.first.amount),
-            ],
+        child: RefreshIndicator(
+          color: AppTheme.navy,
+          onRefresh: () => provider.loadAppData(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context, data.userName, data.platform),
+                const SizedBox(height: 32),
+                _buildTrustScoreCard(context, data.trustScore, data.trustStatus),
+                const SizedBox(height: 24),
+                if (data.kpis.isNotEmpty) ...[
+                  _buildKpiGrid(context, data),
+                  const SizedBox(height: 24),
+                ],
+                _buildIncomeCard(context, data.insuredIncome),
+                const SizedBox(height: 24),
+                if (data.activeAlerts.isNotEmpty)
+                  _buildActiveAlertCard(
+                    context,
+                    data.activeAlerts.first.title,
+                    data.activeAlerts.first.amount,
+                    data.activeAlerts.first.description,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -43,15 +73,27 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, String name, String platform) {
+    final hour = DateTime.now().hour;
+    String greeting;
+    if (hour < 12) {
+      greeting = 'Good Morning,';
+    } else if (hour < 17) {
+      greeting = 'Good Afternoon,';
+    } else {
+      greeting = 'Good Evening,';
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Good Morning,', style: Theme.of(context).textTheme.bodyLarge),
-            Text(name.isNotEmpty ? name : 'Rajesh K.', style: Theme.of(context).textTheme.displaySmall),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(greeting, style: Theme.of(context).textTheme.bodyLarge),
+              Text(name.isNotEmpty ? name : 'Worker', style: Theme.of(context).textTheme.displaySmall),
+            ],
+          ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -64,7 +106,7 @@ class DashboardScreen extends StatelessWidget {
             children: [
               const Icon(Icons.delivery_dining, size: 16, color: AppTheme.skyBlue),
               const SizedBox(width: 4),
-              Text(platform.isNotEmpty ? platform : 'Swiggy', style: Theme.of(context).textTheme.labelLarge),
+              Text(platform.isNotEmpty ? platform : 'Platform', style: Theme.of(context).textTheme.labelLarge),
             ],
           ),
         ),
@@ -114,12 +156,79 @@ class DashboardScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              status.isNotEmpty ? status.toUpperCase() : 'EXCELLENT',
+              status.toUpperCase(),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppTheme.green, fontWeight: FontWeight.bold),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildKpiGrid(BuildContext context, data) {
+    final kpis = data.kpis;
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 1.6,
+      children: kpis.map<Widget>((kpi) {
+        Color accentColor;
+        switch (kpi.accent) {
+          case 'green':
+            accentColor = AppTheme.green;
+            break;
+          case 'sky':
+            accentColor = AppTheme.skyBlue;
+            break;
+          case 'gold':
+            accentColor = AppTheme.gold;
+            break;
+          default:
+            accentColor = AppTheme.navy;
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: kpi.inverse ? AppTheme.navy : AppTheme.surfaceLowest,
+            borderRadius: BorderRadius.circular(16),
+            border: kpi.inverse ? null : Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                kpi.label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: kpi.inverse ? Colors.white60 : AppTheme.textSecondary,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                kpi.value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: kpi.inverse ? Colors.white : accentColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              Text(
+                kpi.hint,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: kpi.inverse ? Colors.white38 : AppTheme.textSecondary,
+                      fontSize: 11,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -140,12 +249,12 @@ class DashboardScreen extends StatelessWidget {
             children: [
               Text('Insured Weekly Income', style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 4),
-              Text('₹$income', style: Theme.of(context).textTheme.displayMedium),
+              Text('₹${income > 0 ? income.toString() : "—"}', style: Theme.of(context).textTheme.displayMedium),
             ],
           ),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppTheme.surfaceLow,
               shape: BoxShape.circle,
             ),
@@ -156,7 +265,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActiveAlertCard(BuildContext context, String title, int amount) {
+  Widget _buildActiveAlertCard(BuildContext context, String title, int amount, String description) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -177,6 +286,10 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(title, style: Theme.of(context).textTheme.headlineMedium),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(description, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+          ],
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

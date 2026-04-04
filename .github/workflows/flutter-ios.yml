@@ -1,0 +1,102 @@
+name: Flutter iOS Build
+
+on:
+  push:
+    paths:
+      - 'flutter_kavach/**'
+      - '.github/workflows/flutter-ios.yml'
+  pull_request:
+    paths:
+      - 'flutter_kavach/**'
+
+jobs:
+  analyze:
+    name: Flutter Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.x'
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: flutter_kavach
+        run: flutter pub get
+
+      - name: Analyze code
+        working-directory: flutter_kavach
+        run: flutter analyze --no-fatal-infos
+
+  build-ios:
+    name: Build iOS (No Codesign)
+    runs-on: macos-latest
+    needs: analyze
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.x'
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: flutter_kavach
+        run: flutter pub get
+
+      - name: Build iOS (no codesign)
+        working-directory: flutter_kavach
+        run: flutter build ios --no-codesign --release
+
+      - name: Upload iOS build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kavach-ios-build
+          path: flutter_kavach/build/ios/iphoneos/Runner.app
+          retention-days: 7
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: analyze
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.x'
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        working-directory: flutter_kavach
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: flutter_kavach
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kavach-android-apk
+          path: flutter_kavach/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7

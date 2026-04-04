@@ -40,3 +40,25 @@ jobs:
       - name: Run mobile typecheck
         working-directory: mobile
         run: npm run typecheck
+
+  flutter-analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.x'
+          channel: stable
+          cache: true
+
+      - name: Get Flutter dependencies
+        working-directory: flutter_kavach
+        run: flutter pub get
+
+      - name: Run Flutter analyze
+        working-directory: flutter_kavach
+        run: flutter analyze --no-fatal-infos

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../providers/app_provider.dart';
+import '../models/app_data.dart';
 import 'package:provider/provider.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -11,13 +12,23 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _smartAlerts = true;
-  bool _biometric = true;
+  late bool _smartAlerts;
+  late bool _biometric;
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = context.read<AppProvider>();
+    final settings = provider.appData?.profileSettings ?? {};
+    _smartAlerts = settings['smartAlerts'] as bool? ?? true;
+    _biometric = settings['biometricLock'] as bool? ?? true;
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     final data = provider.appData;
+    final documents = data?.profileDocuments ?? [];
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -29,17 +40,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileHeader(context, data?.userName ?? 'Rajesh K.', data?.platform ?? 'Swiggy Pilot'),
+            _buildProfileHeader(
+              context,
+              data?.userName ?? 'Worker',
+              data?.platform != null ? '${data!.platform} Pilot' : 'Gig Worker',
+            ),
+            const SizedBox(height: 12),
+            // Plan & Zone info
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceLowest,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Plan', style: Theme.of(context).textTheme.labelMedium),
+                        const SizedBox(height: 2),
+                        Text(data?.plan ?? '—', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  Container(width: 1, height: 36, color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Active Zone', style: Theme.of(context).textTheme.labelMedium),
+                        const SizedBox(height: 2),
+                        Text(data?.zone ?? '—', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 32),
             Text('Linked Documents', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            _buildLinkedDocuments(context),
+            _buildLinkedDocuments(context, documents),
             const SizedBox(height: 32),
             Text('Settings', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             _buildSettings(context),
             const SizedBox(height: 48),
-            _buildSignOutButton(context),
+            _buildSignOutButton(context, provider),
           ],
         ),
       ),
@@ -74,7 +126,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildLinkedDocuments(BuildContext context) {
+  Widget _buildLinkedDocuments(BuildContext context, List<ProfileDocument> documents) {
+    // Use API data if available, otherwise fallback
+    final displayDocs = documents.isNotEmpty
+        ? documents
+        : [
+            ProfileDocument(label: 'Aadhaar Card', status: 'Verified', icon: 'article', verified: true),
+            ProfileDocument(label: 'Driving License', status: 'Active', icon: 'drive', verified: false),
+          ];
+
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceLowest,
@@ -82,43 +142,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
         border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
-        children: [
-          _buildDocItem('Aadhaar Card', 'Verified', Icons.article_rounded, AppTheme.green, true),
-          Divider(height: 1, color: AppTheme.outlineVariant.withValues(alpha: 0.2)),
-          _buildDocItem('Driving License', 'Active', Icons.drive_eta_rounded, AppTheme.skyBlue, false),
-        ],
-      ),
-    );
-  }
+        children: displayDocs.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final doc = entry.value;
+          final statusColor = doc.verified ? AppTheme.green : AppTheme.skyBlue;
 
-  Widget _buildDocItem(String title, String status, IconData icon, Color statusColor, bool isVerified) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: AppTheme.surfaceLow, shape: BoxShape.circle),
-            child: Icon(icon, color: AppTheme.navy, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Row(
+          IconData icon;
+          switch (doc.icon) {
+            case 'article':
+              icon = Icons.article_rounded;
+              break;
+            case 'drive':
+              icon = Icons.drive_eta_rounded;
+              break;
+            default:
+              icon = Icons.description_rounded;
+          }
+
+          return Column(
+            children: [
+              if (idx > 0) Divider(height: 1, color: AppTheme.outlineVariant.withValues(alpha: 0.2)),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
                   children: [
-                    if (isVerified) const Icon(Icons.verified, size: 14, color: AppTheme.green),
-                    if (isVerified) const SizedBox(width: 4),
-                    Text(status, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: statusColor)),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: const BoxDecoration(color: AppTheme.surfaceLow, shape: BoxShape.circle),
+                      child: Icon(icon, color: AppTheme.navy, size: 20),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(doc.label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              if (doc.verified) const Icon(Icons.verified, size: 14, color: AppTheme.green),
+                              if (doc.verified) const SizedBox(width: 4),
+                              Text(doc.status, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: statusColor)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -162,7 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSignOutButton(BuildContext context) {
+  Widget _buildSignOutButton(BuildContext context, AppProvider provider) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
@@ -171,7 +246,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        onPressed: () {},
+        onPressed: () async {
+          await provider.logout();
+        },
         child: Text('Sign Out', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.red)),
       ),
     );
