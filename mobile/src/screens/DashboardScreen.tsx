@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BrandHeader } from '../components/BrandHeader'
@@ -11,31 +11,56 @@ type DashboardScreenProps = {
   user: WorkerProfile
   dashboard: DashboardData
   onOpenClaims: () => void
+  onOpenAlerts?: () => void
+  onOpenPolicy?: () => void
+  isRefreshing?: boolean
+  onRefresh?: () => void
+  onMenuPress?: () => void
 }
 
 export function DashboardScreen({
   user,
   dashboard,
   onOpenClaims,
+  onOpenAlerts,
+  onOpenPolicy,
+  isRefreshing = false,
+  onRefresh,
+  onMenuPress,
 }: DashboardScreenProps) {
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.navy}
+            colors={[colors.navy]}
+          />
+        ) : undefined
+      }
     >
       <LinearGradient colors={[colors.background, '#EDF6FB']} style={styles.topBand}>
-        <BrandHeader subtitle="Coverage active" />
+        <BrandHeader subtitle="Coverage active" onMenuPress={onMenuPress} />
         <View style={styles.greetingRow}>
           <View style={styles.greetingCopy}>
             <Kicker>Good morning</Kicker>
             <Text style={styles.title}>{user.name}</Text>
             <Text style={styles.subtitle}>{user.zone}</Text>
           </View>
-          <Pill tone="navy">{dashboard.coverageStatus}</Pill>
+          <Pressable onPress={onOpenPolicy}>
+            <Pill tone="navy">{dashboard.coverageStatus}</Pill>
+          </Pressable>
         </View>
 
-        <Pressable onPress={onOpenClaims} style={styles.activeCard}>
+        <Pressable
+          onPress={onOpenClaims}
+          style={({ pressed }) => [styles.activeCard, pressed && styles.activeCardPressed]}
+        >
           <View style={styles.activeTop}>
             <Pill tone="gold">{dashboard.activeAlert.type}</Pill>
             <Feather name="arrow-right" size={16} color={colors.white} />
@@ -111,32 +136,53 @@ export function DashboardScreen({
       </View>
 
       <View style={styles.section}>
-        <SectionHeading title="Active alerts" action={`${dashboard.alerts.length} live`} />
+        <Pressable
+          onPress={onOpenAlerts}
+          style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+        >
+          <SectionHeading title="Active alerts" action={`${dashboard.alerts.length} live ›`} />
+        </Pressable>
         <View style={styles.alertStack}>
           {dashboard.alerts.map((alert) => (
-            <CardSurface key={alert.title} style={styles.alertCard}>
-              <View style={styles.alertTitleRow}>
-                <Text style={styles.alertEmoji}>{alert.emoji}</Text>
-                <View style={styles.alertCopy}>
-                  <Text style={styles.alertTitle}>{alert.title}</Text>
-                  <Text style={styles.alertBody}>{alert.subtitle}</Text>
+            <Pressable
+              key={alert.title}
+              onPress={onOpenAlerts}
+              style={({ pressed }) => [pressed && styles.alertCardPressed]}
+            >
+              <CardSurface style={styles.alertCard}>
+                <View style={styles.alertTitleRow}>
+                  <Text style={styles.alertEmoji}>{alert.emoji}</Text>
+                  <View style={styles.alertCopy}>
+                    <Text style={styles.alertTitle}>{alert.title}</Text>
+                    <Text style={styles.alertBody}>{alert.subtitle}</Text>
+                  </View>
+                  <Pill tone={alert.tone === 'gold' ? 'gold' : alert.tone === 'green' ? 'navy' : 'soft'}>
+                    {alert.status}
+                  </Pill>
                 </View>
-                <Pill tone={alert.tone === 'gold' ? 'gold' : alert.tone === 'green' ? 'navy' : 'soft'}>
-                  {alert.status}
-                </Pill>
-              </View>
-            </CardSurface>
+              </CardSurface>
+            </Pressable>
           ))}
         </View>
       </View>
 
       <View style={styles.section}>
-        <SectionHeading title="Recent payouts" action="History" />
+        <Pressable
+          onPress={onOpenClaims}
+          style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+        >
+          <SectionHeading title="Recent payouts" action="View all ›" />
+        </Pressable>
         <CardSurface style={styles.historyCard}>
           {dashboard.payoutHistory.slice(0, 5).map((item, index) => (
-            <View
+            <Pressable
               key={`${item.date}-${item.type}-${index}`}
-              style={[styles.historyRow, index < dashboard.payoutHistory.slice(0, 5).length - 1 && styles.historyBorder]}
+              onPress={onOpenClaims}
+              style={({ pressed }) => [
+                styles.historyRow,
+                index < dashboard.payoutHistory.slice(0, 5).length - 1 && styles.historyBorder,
+                pressed && { opacity: 0.7 },
+              ]}
             >
               <View style={styles.historyLeft}>
                 <Text style={styles.historyType}>{item.type}</Text>
@@ -155,7 +201,7 @@ export function DashboardScreen({
                 </Text>
                 <Text style={styles.historyZone}>{item.zone}</Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </CardSurface>
       </View>
@@ -206,6 +252,10 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 10,
   },
+  activeCardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
   activeTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -239,7 +289,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metricCard: {
-    width: '47.5%',
+    flex: 1,
+    minWidth: 150,
     gap: 10,
     position: 'relative',
     overflow: 'hidden',
@@ -320,6 +371,10 @@ const styles = StyleSheet.create({
   },
   alertCard: {
     paddingVertical: 16,
+  },
+  alertCardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
   alertTitleRow: {
     flexDirection: 'row',

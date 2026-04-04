@@ -5,9 +5,10 @@ import { colors, typography } from '../theme/tokens'
 type BrandHeaderProps = {
   subtitle?: string
   onBack?: () => void
+  onMenuPress?: () => void
 }
 
-export function BrandHeader({ subtitle, onBack }: BrandHeaderProps) {
+export function BrandHeader({ subtitle, onBack, onMenuPress }: BrandHeaderProps) {
   return (
     <View style={styles.row}>
       <View style={styles.left}>
@@ -21,7 +22,11 @@ export function BrandHeader({ subtitle, onBack }: BrandHeaderProps) {
         <Text style={styles.brand}>Kavach</Text>
       </View>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      <Pressable style={styles.iconButton}>
+      <Pressable
+        style={styles.iconButton}
+        onPress={onMenuPress}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Feather name="menu" size={18} color={colors.navy} />
       </Pressable>
     </View>

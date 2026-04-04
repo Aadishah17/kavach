@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { BrandHeader } from '../components/BrandHeader'
 import { CardSurface, Pill, SectionHeading } from '../components/Ui'
 import { formatCompactCurrency } from '../lib/format'
@@ -8,9 +8,12 @@ import type { AnalyticsData, WorkerProfile } from '../types'
 type AnalyticsScreenProps = {
   user: WorkerProfile
   analytics?: AnalyticsData
+  isRefreshing?: boolean
+  onRefresh?: () => void
+  onMenuPress?: () => void
 }
 
-export function AnalyticsScreen({ user, analytics }: AnalyticsScreenProps) {
+export function AnalyticsScreen({ user, analytics, isRefreshing = false, onRefresh, onMenuPress }: AnalyticsScreenProps) {
   if (!analytics) {
     return (
       <ScrollView
@@ -18,7 +21,7 @@ export function AnalyticsScreen({ user, analytics }: AnalyticsScreenProps) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <BrandHeader subtitle="Admin only" />
+        <BrandHeader subtitle="Admin only" onMenuPress={onMenuPress} />
         <CardSurface style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>Analytics is reserved for admin accounts.</Text>
           <Text style={styles.emptyBody}>
@@ -36,8 +39,18 @@ export function AnalyticsScreen({ user, analytics }: AnalyticsScreenProps) {
       style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.navy}
+            colors={[colors.navy]}
+          />
+        ) : undefined
+      }
     >
-      <BrandHeader subtitle="Admin analytics" />
+      <BrandHeader subtitle="Admin analytics" onMenuPress={onMenuPress} />
 
       <View style={styles.kpiGrid}>
         <CardSurface style={styles.kpiCard}>
@@ -199,7 +212,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   kpiCard: {
-    width: '47.5%',
+    flex: 1,
+    minWidth: 140,
     gap: 8,
   },
   kpiLabel: {

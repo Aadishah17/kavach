@@ -1,25 +1,32 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
+import { NavigationContainer, useNavigation } from '@react-navigation/native'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+
 import { AuthProvider, useAuth } from '../context/AuthContext'
 import { AppDataProvider, useAppData } from '../context/AppDataContext'
 import { getApiBaseUrl } from '../lib/api'
 import { BottomTabBar } from '../components/BottomTabBar'
+import { SideMenuDrawer } from '../components/SideMenuDrawer'
 import { PrimaryButton, SecondaryButton } from '../components/Ui'
 import { LandingScreen } from '../screens/LandingScreen'
 import { OnboardingScreen } from '../screens/OnboardingScreen'
 import { DashboardScreen } from '../screens/DashboardScreen'
 import { ClaimsScreen } from '../screens/ClaimsScreen'
+import { PolicyScreen } from '../screens/PolicyScreen'
 import { AnalyticsScreen } from '../screens/AnalyticsScreen'
 import { AlertsScreen } from '../screens/AlertsScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { colors, spacing, typography } from '../theme/tokens'
-import type { AppRoute, PublicRoute } from '../types'
+import type { AppRoute } from '../types'
 
 const workerTabs: Array<{ route: AppRoute; label: string; icon: keyof typeof Feather.glyphMap }> = [
   { route: 'dashboard', label: 'Home', icon: 'grid' },
   { route: 'claims', label: 'Claims', icon: 'shield' },
+  { route: 'policy', label: 'Policy', icon: 'file-text' },
   { route: 'alerts', label: 'Alerts', icon: 'bell' },
   { route: 'profile', label: 'Profile', icon: 'user' },
 ]
@@ -27,6 +34,7 @@ const workerTabs: Array<{ route: AppRoute; label: string; icon: keyof typeof Fea
 const adminTabs: Array<{ route: AppRoute; label: string; icon: keyof typeof Feather.glyphMap }> = [
   { route: 'dashboard', label: 'Home', icon: 'grid' },
   { route: 'claims', label: 'Claims', icon: 'shield' },
+  { route: 'policy', label: 'Policy', icon: 'file-text' },
   { route: 'analytics', label: 'Analytics', icon: 'bar-chart-2' },
   { route: 'alerts', label: 'Alerts', icon: 'bell' },
   { route: 'profile', label: 'Profile', icon: 'user' },
@@ -44,16 +52,62 @@ export function KavachMobileApp() {
   )
 }
 
+const Stack = createNativeStackNavigator()
+const Tab = createBottomTabNavigator()
+
 function RootShell() {
-  const insets = useSafeAreaInsets()
   const {
     isAuthenticated,
     isLoading: authLoading,
     error: authError,
     loginAsDemo,
     completeOnboarding,
-    logout,
   } = useAuth()
+
+  if (authLoading) {
+    return <CenteredState label="Loading Kavach Mobile..." />
+  }
+
+  return (
+    <NavigationContainer>
+      {!isAuthenticated ? (
+        <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+          <Stack.Screen name="landing">
+            {(props) => (
+              <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <LandingScreen
+                  onStart={() => props.navigation.navigate('onboarding')}
+                  onDemo={loginAsDemo}
+                  isBusy={authLoading}
+                  authError={authError}
+                />
+              </SafeAreaView>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="onboarding">
+            {(props) => (
+              <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <OnboardingScreen
+                  onBack={() => props.navigation.goBack()}
+                  onSubmit={completeOnboarding}
+                  isSubmitting={authLoading}
+                  error={authError}
+                />
+              </SafeAreaView>
+            )}
+          </Stack.Screen>
+        </Stack.Navigator>
+      ) : (
+        <AuthenticatedShell />
+      )}
+    </NavigationContainer>
+  )
+}
+
+function AuthenticatedShell() {
+  const insets = useSafeAreaInsets()
+  const navigation = useNavigation<any>()
+  const { logout } = useAuth()
   const {
     data,
     isLoading: dataLoading,
@@ -61,34 +115,22 @@ function RootShell() {
     refreshData,
     saveProfileSettings,
   } = useAppData()
-  const [publicRoute, setPublicRoute] = useState<PublicRoute>('landing')
-  const [activeTab, setActiveTab] = useState<AppRoute>('dashboard')
 
-  if (authLoading) {
-    return <CenteredState label="Loading Kavach Mobile..." />
-  }
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [activeTabDrawer, setActiveTabDrawer] = useState<AppRoute>('dashboard')
 
-  if (!isAuthenticated) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {publicRoute === 'landing' ? (
-          <LandingScreen
-            onStart={() => setPublicRoute('onboarding')}
-            onDemo={loginAsDemo}
-            isBusy={authLoading}
-            authError={authError}
-          />
-        ) : (
-          <OnboardingScreen
-            onBack={() => setPublicRoute('landing')}
-            onSubmit={completeOnboarding}
-            isSubmitting={authLoading}
-            error={authError}
-          />
-        )}
-      </SafeAreaView>
-    )
-  }
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await refreshData()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [refreshData])
+
+  const openMenu = useCallback(() => setIsMenuOpen(true), [])
+  const closeMenu = useCallback(() => setIsMenuOpen(false), [])
 
   if (!data && dataLoading) {
     return <CenteredState label="Syncing live payout data..." />
@@ -108,47 +150,131 @@ function RootShell() {
   }
 
   const tabs = data.user.role === 'admin' ? adminTabs : workerTabs
-  const resolvedActiveTab =
-    data.user.role !== 'admin' && activeTab === 'analytics' ? 'dashboard' : activeTab
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.appShell}>
-        {resolvedActiveTab === 'dashboard' ? (
-          <DashboardScreen
-            user={data.user}
-            dashboard={data.dashboard}
-            onOpenClaims={() => setActiveTab('claims')}
-          />
-        ) : null}
-        {resolvedActiveTab === 'claims' ? (
-          <ClaimsScreen user={data.user} claims={data.claims} />
-        ) : null}
-        {resolvedActiveTab === 'analytics' ? (
-          <AnalyticsScreen user={data.user} analytics={data.analytics} />
-        ) : null}
-        {resolvedActiveTab === 'alerts' ? <AlertsScreen alerts={data.alerts} /> : null}
-        {resolvedActiveTab === 'profile' ? (
-          <ProfileScreen
-            user={data.user}
-            profile={data.profile}
-            onSaveSettings={saveProfileSettings}
-            onLogout={logout}
-          />
-        ) : null}
+        <Tab.Navigator
+          screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.background } }}
+          screenListeners={{
+            state: (e) => {
+              if (e.data.state && e.data.state.routes.length > 0) {
+                 const routeName = e.data.state.routes[e.data.state.index].name as AppRoute
+                 setActiveTabDrawer(routeName)
+              }
+            }
+          }}
+          tabBar={(props) => {
+            let activeRouteName = props.state.routes[props.state.index].name as AppRoute
+            if (activeRouteName === 'analytics' && data.user.role !== 'admin') {
+              activeRouteName = 'dashboard'
+            }
+            return (
+              <SafeAreaView edges={['bottom']} style={styles.tabSafeArea}>
+                <BottomTabBar
+                  activeTab={activeRouteName}
+                  tabs={tabs}
+                  onSelect={(r) => props.navigation.navigate(r)}
+                />
+              </SafeAreaView>
+            )
+          }}
+        >
+          <Tab.Screen name="dashboard">
+            {(props) => (
+              <DashboardScreen
+                user={data.user}
+                dashboard={data.dashboard}
+                onOpenClaims={() => props.navigation.navigate('claims')}
+                onOpenAlerts={() => props.navigation.navigate('alerts')}
+                onOpenPolicy={() => props.navigation.navigate('policy')}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                onMenuPress={openMenu}
+              />
+            )}
+          </Tab.Screen>
+          <Tab.Screen name="claims">
+            {(props) => (
+              <ClaimsScreen
+                user={data.user}
+                claims={data.claims}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                onMenuPress={openMenu}
+              />
+            )}
+          </Tab.Screen>
+          <Tab.Screen name="policy">
+            {(props) => (
+              <PolicyScreen
+                user={data.user}
+                policy={data.policy}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                onMenuPress={openMenu}
+              />
+            )}
+          </Tab.Screen>
+          <Tab.Screen name="analytics">
+            {(props) => (
+              <AnalyticsScreen
+                user={data.user}
+                analytics={data.analytics}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                onMenuPress={openMenu}
+              />
+            )}
+          </Tab.Screen>
+          <Tab.Screen name="alerts">
+            {(props) => (
+              <AlertsScreen
+                alerts={data.alerts}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                onMenuPress={openMenu}
+              />
+            )}
+          </Tab.Screen>
+          <Tab.Screen name="profile">
+            {(props) => (
+              <ProfileScreen
+                user={data.user}
+                profile={data.profile}
+                onSaveSettings={saveProfileSettings}
+                onLogout={logout}
+                isRefreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                onMenuPress={openMenu}
+              />
+            )}
+          </Tab.Screen>
+        </Tab.Navigator>
       </View>
 
       <Pressable
-        onPress={() => setActiveTab('alerts')}
+        onPress={() => navigation.navigate('alerts')}
         style={[styles.supportButton, { bottom: insets.bottom + 92 }]}
       >
         <Feather name="message-circle" size={16} color={colors.white} />
         <Text style={styles.supportText}>Support</Text>
       </Pressable>
 
-      <SafeAreaView edges={['bottom']} style={styles.tabSafeArea}>
-        <BottomTabBar activeTab={resolvedActiveTab} tabs={tabs} onSelect={setActiveTab} />
-      </SafeAreaView>
+      <SideMenuDrawer
+        visible={isMenuOpen}
+        onClose={closeMenu}
+        user={data.user}
+        activeTab={activeTabDrawer}
+        onNavigate={(route) => {
+          navigation.navigate(route)
+          closeMenu()
+        }}
+        onLogout={() => {
+          closeMenu()
+          void logout()
+        }}
+      />
     </SafeAreaView>
   )
 }

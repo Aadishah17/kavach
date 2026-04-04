@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Feather } from '@expo/vector-icons'
 import { BrandHeader } from '../components/BrandHeader'
 import { CardSurface, Pill, PrimaryButton, SecondaryButton, SectionHeading } from '../components/Ui'
 import { formatCurrency, initialsFromName } from '../lib/format'
@@ -11,6 +12,9 @@ type ProfileScreenProps = {
   profile: ProfileData
   onSaveSettings: (settings: ProfileSetting[]) => Promise<void>
   onLogout: () => Promise<void>
+  isRefreshing?: boolean
+  onRefresh?: () => void
+  onMenuPress?: () => void
 }
 
 export function ProfileScreen({
@@ -18,6 +22,9 @@ export function ProfileScreen({
   profile,
   onSaveSettings,
   onLogout,
+  isRefreshing = false,
+  onRefresh,
+  onMenuPress,
 }: ProfileScreenProps) {
   const [settings, setSettings] = useState(profile.settings)
   const [isSaving, setIsSaving] = useState(false)
@@ -38,9 +45,22 @@ export function ProfileScreen({
     setIsSaving(true)
     try {
       await onSaveSettings(settings)
+      Alert.alert('Settings saved', 'Your preferences have been updated.')
+    } catch {
+      Alert.alert('Error', 'Could not save settings. Please try again.')
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleDocumentPress = (documentName: string, status: string) => {
+    Alert.alert(
+      documentName,
+      `Status: ${status}\n\nThis document is stored securely with Kavach.`,
+      [
+        { text: 'OK', style: 'default' },
+      ],
+    )
   }
 
   return (
@@ -48,8 +68,18 @@ export function ProfileScreen({
       style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.navy}
+            colors={[colors.navy]}
+          />
+        ) : undefined
+      }
     >
-      <BrandHeader subtitle="Profile and policy" />
+      <BrandHeader subtitle="Profile and policy" onMenuPress={onMenuPress} />
 
       <CardSurface style={styles.profileCard}>
         <View style={styles.avatar}>
@@ -78,16 +108,27 @@ export function ProfileScreen({
         <SectionHeading title="Documents" action={`${profile.documents.length} stored`} />
         <CardSurface style={styles.listCard}>
           {profile.documents.map((document, index) => (
-            <View
+            <Pressable
               key={`${document.name}-${index}`}
-              style={[styles.documentRow, index < profile.documents.length - 1 && styles.rowBorder]}
+              onPress={() => handleDocumentPress(document.name, document.status)}
+              style={({ pressed }) => [
+                styles.documentRow,
+                index < profile.documents.length - 1 && styles.rowBorder,
+                pressed && styles.rowPressed,
+              ]}
             >
+              <View style={styles.docIconWrap}>
+                <Feather name="file-text" size={16} color={colors.sky} />
+              </View>
               <View style={styles.documentCopy}>
                 <Text style={styles.documentTitle}>{document.name}</Text>
                 <Text style={styles.documentMeta}>{document.meta}</Text>
               </View>
-              <Pill tone="soft">{document.status}</Pill>
-            </View>
+              <View style={styles.docRight}>
+                <Pill tone="soft">{document.status}</Pill>
+                <Feather name="chevron-right" size={14} color={colors.textMuted} />
+              </View>
+            </Pressable>
           ))}
         </CardSurface>
       </View>
@@ -210,6 +251,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
   },
+  rowPressed: {
+    opacity: 0.7,
+    backgroundColor: colors.surfaceSoft,
+  },
+  docIconWrap: {
+    height: 36,
+    width: 36,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   documentCopy: {
     flex: 1,
     gap: 4,
@@ -223,6 +276,11 @@ const styles = StyleSheet.create({
     fontFamily: typography.body,
     fontSize: 12,
     color: colors.textMuted,
+  },
+  docRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   rowBorder: {
     borderBottomWidth: 1,

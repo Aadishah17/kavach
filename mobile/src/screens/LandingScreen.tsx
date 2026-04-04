@@ -456,7 +456,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   triggerCard: {
-    width: '47%',
+    flex: 1,
+    minWidth: 140,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     padding: 16,

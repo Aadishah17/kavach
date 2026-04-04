@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BrandHeader } from '../components/BrandHeader'
@@ -11,16 +11,35 @@ import type { ClaimsData, WorkerProfile } from '../types'
 type ClaimsScreenProps = {
   user: WorkerProfile
   claims: ClaimsData
+  isRefreshing?: boolean
+  onRefresh?: () => void
+  onMenuPress?: () => void
 }
 
-export function ClaimsScreen({ user, claims }: ClaimsScreenProps) {
+export function ClaimsScreen({
+  user,
+  claims,
+  isRefreshing = false,
+  onRefresh,
+  onMenuPress,
+}: ClaimsScreenProps) {
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.navy}
+            colors={[colors.navy]}
+          />
+        ) : undefined
+      }
     >
-      <BrandHeader subtitle="Claims and trust" />
+      <BrandHeader subtitle="Claims and trust" onMenuPress={onMenuPress} />
 
       <LinearGradient colors={[colors.navy, colors.navyDeep]} style={styles.activeCard}>
         <View style={styles.activeTopRow}>
@@ -71,25 +90,44 @@ export function ClaimsScreen({ user, claims }: ClaimsScreenProps) {
         <SectionHeading title="Payout history" action={`${claims.payoutHistory.length} events`} />
         <CardSurface style={styles.listCard}>
           {claims.payoutHistory.map((item, index) => (
-            <View
+            <Pressable
               key={`${item.date}-${item.type}-${index}`}
-              style={[styles.historyRow, index < claims.payoutHistory.length - 1 && styles.historyBorder]}
+              style={({ pressed }) => [
+                styles.historyRow,
+                index < claims.payoutHistory.length - 1 && styles.historyBorder,
+                pressed && { opacity: 0.7 },
+              ]}
             >
               <View style={styles.historyLeft}>
                 <Text style={styles.historyTitle}>{item.type}</Text>
                 <Text style={styles.historyMeta}>{item.date} • {item.zone}</Text>
                 <Text style={styles.historyBody}>{item.disruption}</Text>
               </View>
-              <Text
-                style={[
-                  styles.historyAmount,
-                  item.amount < 0 && styles.historyDebit,
-                ]}
-              >
-                {item.amount < 0 ? '-' : '+'}
-                {formatCurrency(Math.abs(item.amount))}
-              </Text>
-            </View>
+              <View style={styles.amountCol}>
+                <Text
+                  style={[
+                    styles.historyAmount,
+                    item.amount < 0 && styles.historyDebit,
+                  ]}
+                >
+                  {item.amount < 0 ? '-' : '+'}
+                  {formatCurrency(Math.abs(item.amount))}
+                </Text>
+                <View style={[
+                  styles.statusBadge,
+                  item.status === 'Paid' && styles.statusPaid,
+                  item.status === 'Pending' && styles.statusPending,
+                  item.status === 'Flagged' && styles.statusFlagged,
+                ]}>
+                  <Text style={[
+                    styles.statusText,
+                    item.status === 'Paid' && styles.statusTextPaid,
+                    item.status === 'Pending' && styles.statusTextPending,
+                    item.status === 'Flagged' && styles.statusTextFlagged,
+                  ]}>{item.status}</Text>
+                </View>
+              </View>
+            </Pressable>
           ))}
         </CardSurface>
       </View>
@@ -255,12 +293,47 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.textMuted,
   },
+  amountCol: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   historyAmount: {
     fontFamily: typography.display,
     fontSize: 20,
     color: colors.green,
   },
   historyDebit: {
+    color: colors.red,
+  },
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: colors.surfaceSoft,
+  },
+  statusPaid: {
+    backgroundColor: 'rgba(30,126,94,0.12)',
+  },
+  statusPending: {
+    backgroundColor: colors.goldSoft,
+  },
+  statusFlagged: {
+    backgroundColor: 'rgba(200,91,74,0.12)',
+  },
+  statusText: {
+    fontFamily: typography.labelMedium,
+    fontSize: 9,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+  },
+  statusTextPaid: {
+    color: colors.green,
+  },
+  statusTextPending: {
+    color: colors.gold,
+  },
+  statusTextFlagged: {
     color: colors.red,
   },
   premiumRow: {

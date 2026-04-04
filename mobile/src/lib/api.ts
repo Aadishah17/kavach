@@ -3,6 +3,8 @@ import { Platform } from 'react-native'
 import type { AppBootstrap, AuthResponse, LandingPayload, ProfileSetting, SignupPayload, WorkerProfile } from '../types'
 
 const TOKEN_STORAGE_KEY = 'kavach-mobile:token'
+// NOTE: For Production / App Store release, change DEFAULT_API_BASE to your live backend domain 
+// e.g., 'https://api.kavach.app'
 const DEFAULT_API_BASE =
   Platform.OS === 'android' ? 'http://10.0.2.2:8787' : 'http://127.0.0.1:8787'
 

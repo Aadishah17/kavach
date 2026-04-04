@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons'
 import type { ReactNode } from 'react'
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native'
 import { colors, radius, spacing, typography } from '../theme/tokens'
 
 export function Kicker({ children }: { children: string }) {
@@ -40,10 +40,10 @@ export function PrimaryButton({
   onPress: () => void
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.primaryButton}>
+    <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.primaryButton}>
       <Text style={styles.primaryButtonText}>{label}</Text>
       <Feather name="arrow-right" size={16} color={colors.white} />
-    </Pressable>
+    </TouchableOpacity>
   )
 }
 
@@ -55,9 +55,9 @@ export function SecondaryButton({
   onPress: () => void
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.secondaryButton}>
+    <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={styles.secondaryButton}>
       <Text style={styles.secondaryButtonText}>{label}</Text>
-    </Pressable>
+    </TouchableOpacity>
   )
 }
 
