@@ -1,25 +1,16 @@
-<p align="center">
-  <img src="public/kavach-shield.svg" alt="Kavach Shield" width="80" />
-</p>
+# Kavach
 
-<h1 align="center">Kavach</h1>
+![Kavach Shield](public/kavach-shield.svg)
 
-<p align="center">
-  <strong>Parametric Income Protection for India's Gig Workers</strong><br/>
-  Real-time weather, civic, and disruption triggers → instant UPI payouts
-</p>
+Parametric Income Protection for India's Gig Workers
 
-<p align="center">
-  <a href="#-quick-start">Quick Start</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-flutter-mobile-app">Mobile App</a> •
-  <a href="#-deployment">Deployment</a> •
-  <a href="#-api-reference">API</a>
-</p>
+Real-time weather, civic, and disruption triggers → instant UPI payouts
+
+[Quick Start](#quick-start) • [Architecture](#architecture) • [Mobile App](#flutter-mobile-app) • [Deployment](#deployment) • [API](#api-reference)
 
 ---
 
-## 🎯 What is Kavach?
+## What is Kavach?
 
 Gig delivery workers on platforms like **Swiggy, Zomato, Blinkit, and Amazon Flex** lose income to rain, flooding, pollution spikes, curfews, and civic disruptions — but traditional insurance is too slow, too generic, or too complicated to help in the moment.
 
@@ -28,7 +19,7 @@ Gig delivery workers on platforms like **Swiggy, Zomato, Blinkit, and Amazon Fle
 ### Key Features
 
 | Feature | Description |
-|---------|-------------|
+| ------- | ----------- |
 | **7 Trigger Categories** | Heavy rain, floods, curfews, bandhs, extreme heat, pollution, fog |
 | **AI Trust Scoring** | Behavioral analytics prevent fraud while fast-tracking honest claims |
 | **< 4 Min Payouts** | Auto-approved payouts land directly in worker UPI handles |
@@ -38,7 +29,7 @@ Gig delivery workers on platforms like **Swiggy, Zomato, Blinkit, and Amazon Fle
 
 ---
 
-## 🏗 Architecture
+## Architecture
 
 ```text
 kavach/
@@ -67,7 +58,7 @@ kavach/
 ### Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+| ----- | ---------- |
 | **Web Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Framer Motion, Recharts, React Router 6 |
 | **Mobile App** | Flutter 3, Dart, Provider, Material Design 3 |
 | **API Server** | Express 5, TypeScript, Zod validation |
@@ -210,7 +201,7 @@ sequenceDiagram
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -237,7 +228,7 @@ The web app runs at `http://localhost:5173` and the API at `http://localhost:878
 ### Available Scripts
 
 | Script | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `npm run dev` | Start web + API dev servers concurrently |
 | `npm run dev:client` | Vite dev server only |
 | `npm run dev:server` | Express API with hot reload (tsx watch) |
@@ -250,7 +241,7 @@ The web app runs at `http://localhost:5173` and the API at `http://localhost:878
 
 ---
 
-## 📱 Flutter Mobile App
+## Flutter Mobile App
 
 The Flutter companion app lives in `flutter_kavach/` and provides a native cross-platform experience for iOS and Android.
 
@@ -307,7 +298,7 @@ flutter_kavach/lib/
 
 ---
 
-## ☁️ Deployment
+## Deployment
 
 ### Cloud Run (Production)
 
@@ -334,7 +325,7 @@ gcloud run deploy kavach-app \
 ### Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| -------- | ------- | ----------- |
 | `PORT` | `8787` (dev) / `8080` (Docker) | Server port |
 | `USE_FIRESTORE` | `false` | Use Cloud Firestore instead of SQLite |
 | `NODE_ENV` | `development` | Set to `production` in deployed environments |
@@ -344,21 +335,21 @@ gcloud run deploy kavach-app \
 When `USE_FIRESTORE=true`, data is stored in three collections:
 
 | Collection | Key | Purpose |
-|------------|-----|---------|
+| ---------- | --- | ------- |
 | `users` | Document ID = `user.id` | Worker profiles, KYC, plan info |
 | `sessions` | Document ID = `session.id` | Auth sessions with token hashing |
 | `profileSettings` | Document ID = `userId` | Per-user notification & app preferences |
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
 All API routes are prefixed with `/api`. Authentication uses the `X-Session-Token` header.
 
 ### Public Routes
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| ------ | -------- | ----------- |
 | `GET` | `/api/health` | Health check |
 | `POST` | `/api/auth/demo-login` | Login as demo user |
 | `POST` | `/api/auth/signup` | Create new worker account |
@@ -367,7 +358,7 @@ All API routes are prefixed with `/api`. Authentication uses the `X-Session-Toke
 ### Authenticated Routes
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| ------ | -------- | ----------- |
 | `GET` | `/api/me` | Current user profile + app data |
 | `POST` | `/api/auth/logout` | Revoke current session |
 | `GET` | `/api/profile/settings` | Get profile settings |
@@ -375,13 +366,13 @@ All API routes are prefixed with `/api`. Authentication uses the `X-Session-Toke
 
 ### Admin Routes (role: `admin`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/admin/analytics` | Platform analytics & KPIs |
+| Method | Endpoint                | Description                |
+| ------ | ----------------------- | -------------------------- |
+| `GET`  | `/api/admin/analytics`  | Platform analytics & KPIs  |
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all tests
@@ -399,7 +390,7 @@ cd flutter_kavach && flutter analyze
 
 ---
 
-## 🎨 Design Philosophy
+## Design Philosophy
 
 Kavach follows a strict design system called **"Digital Guardian"** across all surfaces:
 
@@ -411,7 +402,7 @@ Kavach follows a strict design system called **"Digital Guardian"** across all s
 
 ---
 
-## 🛣 Roadmap
+## Roadmap
 
 - [ ] Integrate live IMD weather, CPCB AQI, and mobility feeds for real-time triggers
 - [ ] Production-grade auth (OTP via SMS, Aadhaar eKYC)
@@ -424,12 +415,10 @@ Kavach follows a strict design system called **"Digital Guardian"** across all s
 
 ---
 
-## 📄 License
+## License
 
 This project was built for educational and demonstration purposes.
 
 ---
 
-<p align="center">
-  <strong>Built with ❤️ for India's 15M+ gig workers</strong>
-</p>
+Built with ❤️ for India's 15M+ gig workers
