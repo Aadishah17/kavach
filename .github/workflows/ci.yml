@@ -17,29 +17,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            mobile/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install root dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Run root lint
+      - name: Run lint
         run: npm run lint
 
-      - name: Run root tests
+      - name: Run tests
         run: npm test
 
-      - name: Build root app
+      - name: Build web app
         run: npm run build
-
-      - name: Install mobile dependencies
-        working-directory: mobile
-        run: npm ci
-
-      - name: Run mobile typecheck
-        working-directory: mobile
-        run: npm run typecheck
 
   flutter-analyze:
     runs-on: ubuntu-latest

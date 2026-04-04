@@ -49,7 +49,6 @@ kavach/
 │       ├── services/       # API client
 │       └── theme/          # Digital Guardian design system
 ├── packages/shared/        # Shared API contracts & domain types
-├── mobile/                 # React Native / Expo companion (legacy)
 ├── tests/                  # Web & server test suites
 ├── Dockerfile              # Multi-stage Cloud Run container
 └── .github/                # CI/CD workflows

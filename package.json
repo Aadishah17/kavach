@@ -14,7 +14,6 @@
     "test": "npm run test:server && npm run test:web",
     "test:server": "tsx --test tests/server/**/*.test.ts",
     "test:web": "vitest run",
-    "typecheck:mobile": "npm --prefix mobile run typecheck",
     "demo:reset": "tsx server/reset-demo.ts",
     "preview": "vite preview",
     "start": "node server/dist/server/index.js"

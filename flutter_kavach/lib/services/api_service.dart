@@ -35,10 +35,13 @@ class ApiService {
 
   static Future<Map<String, String>> _getHeaders() async {
     final token = await getSavedToken();
-    return {
+    final headers = {
       'Content-Type': 'application/json',
-      if (token case final t?) 'X-Session-Token': t,
     };
+    if (token != null) {
+      headers['X-Session-Token'] = token;
+    }
+    return headers;
   }
 
   /// Demo login — calls POST /api/auth/demo

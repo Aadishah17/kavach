@@ -23,11 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .playwright-cli/
-mobile/node_modules/
-mobile/.expo/
-mobile/dist/
-mobile/dist-export/
-mobile/web-build/
 
 # Flutter
 flutter_kavach/build/
