@@ -14,10 +14,12 @@
 name: Run Datadog Synthetic tests
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+  workflow_dispatch: # Manual trigger only — requires DD_API_KEY and DD_APP_KEY secrets
+  # Uncomment below once Datadog secrets are configured:
+  # push:
+  #   branches: [ "master" ]
+  # pull_request:
+  #   branches: [ "master" ]
 
 jobs:
   build:
