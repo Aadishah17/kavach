@@ -35,12 +35,13 @@ export const demoProfile: BaseWorkerProfile = {
   trustScore: 92,
   upi: 'rahul@phonepe',
   kycVerified: true,
-  nextDeduction: 'Monday, 24 March 2026',
+  nextDeduction: 'Monday, 13 April 2026',
   role: 'admin',
 }
 
 export const defaultProfileSettings: ProfileSetting[] = [
   { label: 'Smart Alerts', value: 'Notify me during peak hours', enabled: true },
+  { label: 'AutoPay Mandate', value: 'Weekly deduction active', enabled: true },
   { label: 'App Language', value: 'English / Hindi', enabled: true, kind: 'link' },
   { label: 'Biometric Lock', value: 'Face ID / Fingerprint enabled', enabled: true },
 ]
@@ -420,7 +421,7 @@ export function buildSignupUser(input: SignupInput) {
     trustScore: 92,
     upi: input.upi.trim(),
     kycVerified: true,
-    nextDeduction: 'Monday, 24 March 2026',
+    nextDeduction: 'Monday, 13 April 2026',
     role: 'worker',
   }
 

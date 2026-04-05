@@ -1,137 +1,190 @@
-import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import 'package:flutter/foundation.dart';
+
 import '../models/app_data.dart';
+import '../services/kavach_api_client.dart';
+
+enum AppAuthState {
+  booting,
+  signedOut,
+  authenticating,
+  authenticated,
+}
+
+enum AppDataState {
+  idle,
+  loading,
+  ready,
+  error,
+}
 
 class AppProvider extends ChangeNotifier {
+  AppProvider({KavachApiClient? apiClient}) : _apiClient = apiClient ?? HttpKavachApiClient();
+
+  final KavachApiClient _apiClient;
+
   AppData? _appData;
-  bool _isLoading = false;
-  bool _isAuthenticated = false;
-  String? _error;
+  AppAuthState _authState = AppAuthState.booting;
+  AppDataState _dataState = AppDataState.idle;
+  String? _errorMessage;
+  AuthSession? _session;
+  SupportTicket? _lastSupportTicket;
+  bool _supportRequestInFlight = false;
 
   AppData? get appData => _appData;
-  bool get isLoading => _isLoading;
-  bool get isAuthenticated => _isAuthenticated;
-  String? get error => _error;
+  AppAuthState get authState => _authState;
+  AppDataState get dataState => _dataState;
+  String? get errorMessage => _errorMessage;
+  SupportTicket? get lastSupportTicket => _lastSupportTicket;
+  SupportTicket? get latestSupportTicket => _lastSupportTicket;
+  bool get isSupportRequestInFlight => _supportRequestInFlight;
 
-  /// Try to restore a previous session on app launch
+  bool get isLoading =>
+      _authState == AppAuthState.booting ||
+      _authState == AppAuthState.authenticating ||
+      _dataState == AppDataState.loading;
+
+  bool get isAuthenticated => _authState == AppAuthState.authenticated;
+  bool get isBooting => _authState == AppAuthState.booting;
+
   Future<void> restoreSession() async {
-    _isLoading = true;
-    _error = null;
+    _authState = AppAuthState.booting;
+    _dataState = AppDataState.idle;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      final session = await ApiService.restoreSession();
-      if (session != null) {
-        _isAuthenticated = true;
-        await loadAppData();
+      final session = await _apiClient.restoreSession();
+      if (session == null) {
+        _session = null;
+        _authState = AppAuthState.signedOut;
+        notifyListeners();
         return;
       }
-    } catch (_) {
-      // Session restore failed silently
-    }
 
-    _isLoading = false;
-    _isAuthenticated = false;
-    notifyListeners();
-  }
-
-  /// Demo login — quick entry for testing
-  Future<void> demoLogin() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      await ApiService.demoLogin();
-      _isAuthenticated = true;
+      _session = session;
+      _authState = AppAuthState.authenticated;
       await loadAppData();
-    } catch (e) {
-      _error = e.toString();
-      _isAuthenticated = false;
-      // Provide fallback mock data so the UI still renders
-      _appData = _buildFallbackData();
-      _isAuthenticated = true;
-      _isLoading = false;
+    } catch (error) {
+      _session = null;
+      _authState = AppAuthState.signedOut;
+      _dataState = AppDataState.idle;
+      _errorMessage = _describeError(error);
+      _appData = null;
       notifyListeners();
     }
   }
 
-  /// Load app data from the API (must be authenticated)
-  Future<void> loadAppData() async {
-    _isLoading = true;
-    _error = null;
+  Future<void> loginWithPhone(String phone) async {
+    _authState = AppAuthState.authenticating;
+    _dataState = AppDataState.idle;
+    _errorMessage = null;
+    _appData = null;
     notifyListeners();
 
     try {
-      final data = await ApiService.getAppData();
-      _appData = AppData.fromJson(data);
-    } catch (e) {
-      _error = e.toString();
-      if (e.toString().contains('Session expired')) {
-        _isAuthenticated = false;
-        await ApiService.clearToken();
-      }
-      // Provide fallback data if API is unreachable
-      _appData ??= _buildFallbackData();
-    } finally {
-      _isLoading = false;
+      _session = await _apiClient.loginWithPhone(phone);
+      _authState = AppAuthState.authenticated;
+      await loadAppData();
+    } catch (error) {
+      _session = null;
+      _authState = AppAuthState.signedOut;
+      _dataState = AppDataState.idle;
+      _errorMessage = _describeError(error);
+      _appData = null;
       notifyListeners();
     }
   }
 
-  /// Logout — clear session and app data
-  Future<void> logout() async {
-    await ApiService.logout();
+  Future<void> demoLogin() async {
+    _authState = AppAuthState.authenticating;
+    _dataState = AppDataState.idle;
+    _errorMessage = null;
     _appData = null;
-    _isAuthenticated = false;
-    _error = null;
+    notifyListeners();
+
+    try {
+      _session = await _apiClient.demoLogin();
+      _authState = AppAuthState.authenticated;
+      await loadAppData();
+    } catch (error) {
+      _session = null;
+      _authState = AppAuthState.signedOut;
+      _dataState = AppDataState.idle;
+      _errorMessage = _describeError(error);
+      _appData = null;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAppData() async {
+    if (_authState != AppAuthState.authenticated && _session == null) {
+      _dataState = AppDataState.error;
+      _errorMessage = 'Please log in to load worker data.';
+      notifyListeners();
+      return;
+    }
+
+    _dataState = AppDataState.loading;
+    _errorMessage = null;
+    _appData = null;
+    notifyListeners();
+
+    try {
+      final data = await _apiClient.fetchAppData();
+      _appData = AppData.fromJson(data);
+      _dataState = AppDataState.ready;
+    } catch (error) {
+      _appData = null;
+      _dataState = AppDataState.error;
+      _errorMessage = _describeError(error);
+
+      if (_isUnauthorized(error)) {
+        _session = null;
+        _authState = AppAuthState.signedOut;
+        await _apiClient.clearSession();
+      }
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<SupportTicket?> requestEmergencySupport({String channel = 'callback'}) async {
+    _supportRequestInFlight = true;
+    notifyListeners();
+
+    try {
+      final ticket = await _apiClient.requestEmergencySupport(channel: channel);
+      _lastSupportTicket = ticket;
+      _errorMessage = null;
+      return ticket;
+    } catch (error) {
+      _errorMessage = _describeError(error);
+      return null;
+    } finally {
+      _supportRequestInFlight = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> logout() async {
+    await _apiClient.logout();
+    _appData = null;
+    _session = null;
+    _authState = AppAuthState.signedOut;
+    _dataState = AppDataState.idle;
+    _errorMessage = null;
+    _lastSupportTicket = null;
     notifyListeners();
   }
 
-  AppData _buildFallbackData() {
-    return AppData(
-      userName: 'Rajesh K.',
-      platform: 'Swiggy',
-      plan: 'Kavach Standard',
-      zone: 'Koramangala',
-      trustScore: 92,
-      trustStatus: 'Excellent',
-      insuredIncome: 4000,
-      coverageStatus: 'Active',
-      kpis: [
-        DashboardKpi(label: 'Payout this week', value: '₹571', hint: '↑ Tuesday rain event', accent: 'green'),
-        DashboardKpi(label: 'Trust score', value: '92', hint: '↑ Excellent', accent: 'sky'),
-        DashboardKpi(label: 'Days protected', value: '3 days', hint: 'Mon–Wed covered', accent: 'gold'),
-        DashboardKpi(label: 'Insured weekly income', value: '₹4,000', hint: 'Standard', accent: 'navy', inverse: true),
-      ],
-      activeAlerts: [
-        AlertItem(title: 'Heavy Rain in Koramangala', severity: 'critical', description: 'Parametric trigger activated', amount: 571),
-      ],
-      alertsFeed: [
-        AlertFeedItem(icon: 'cloud', title: 'Heavy Rain Alert – Koramangala', body: 'Parametric trigger activated. Estimated payout: ₹571', time: '2h ago', accent: 'red'),
-        AlertFeedItem(icon: 'check', title: 'Daily Premium Paid', body: 'AutoPay of ₹12.00 processed successfully', time: '6h ago', accent: 'green'),
-        AlertFeedItem(icon: 'shield', title: 'Verification Success', body: 'GPS + movement data validated for today', time: '8h ago', accent: 'sky'),
-      ],
-      payoutHistory: [
-        PayoutItem(label: 'Heavy Rain – Koramangala', amount: '571', date: 'Today', status: 'Paid', type: 'payout'),
-      ],
-      premiumHistory: [
-        PayoutItem(label: 'Weekly AutoPay Premium', amount: '49', date: 'Yesterday', status: 'Paid', type: 'premium'),
-      ],
-      profileDocuments: [
-        ProfileDocument(label: 'Aadhaar Card', status: 'Verified', icon: 'article', verified: true),
-        ProfileDocument(label: 'Driving License', status: 'Active', icon: 'drive', verified: false),
-      ],
-      emergencyResources: [
-        EmergencyResource(label: 'NDRF Helpline', number: '1078', icon: 'hospital'),
-        EmergencyResource(label: 'Kavach Support', number: '1800-XXX-XXXX', icon: 'phone'),
-        EmergencyResource(label: 'Police', number: '112', icon: 'police'),
-      ],
-      profileSettings: {
-        'smartAlerts': true,
-        'biometricLock': true,
-        'language': 'English',
-      },
-    );
+  String _describeError(Object error) {
+    if (error is KavachApiException) {
+      return error.message;
+    }
+    return error.toString();
+  }
+
+  bool _isUnauthorized(Object error) {
+    return error is KavachApiException && error.statusCode == 401;
   }
 }

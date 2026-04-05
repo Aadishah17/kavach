@@ -1,6 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react'
-import { getSession, getStoredToken, loginDemo, logoutSession, setStoredToken, signup } from '../utils/api'
+import {
+  getSession,
+  getStoredToken,
+  loginDemo,
+  loginWithPhone as loginWithPhoneRequest,
+  logoutSession,
+  setStoredToken,
+  signup,
+} from '../utils/api'
 import type { SignupPayload, WorkerProfile } from '../types'
 
 type AuthContextValue = {
@@ -8,6 +16,7 @@ type AuthContextValue = {
   token: string | null
   isAuthenticated: boolean
   isLoading: boolean
+  loginWithPhone: (phone: string) => Promise<void>
   loginAsDemo: () => Promise<void>
   completeOnboarding: (profile: SignupPayload) => Promise<void>
   logout: () => Promise<void>
@@ -50,6 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       isAuthenticated: Boolean(user),
       isLoading,
+      loginWithPhone: async (phone) => {
+        const response = await loginWithPhoneRequest(phone)
+        setUser(response.user)
+        setToken(response.token)
+        setStoredToken(response.token)
+      },
       loginAsDemo: async () => {
         const response = await loginDemo()
         setUser(response.user)

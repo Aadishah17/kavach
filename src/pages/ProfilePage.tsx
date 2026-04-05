@@ -1,16 +1,20 @@
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Loader2, MessageSquare, ShieldCheck, LogOut, ArrowRight } from 'lucide-react'
 import { StatusPill } from '../components/StatusPill'
 import { useAppData } from '../context/AppDataContext'
 import { useAuth } from '../context/AuthContext'
 import { pageTransition } from '../lib/motion'
+import { requestEmergencySupport } from '../utils/api'
 import { formatCurrency } from '../utils/format'
 
 export function ProfilePage() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, token, logout } = useAuth()
   const { data, saveProfileSettings } = useAppData()
+  const [busy, setBusy] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const initials = useMemo(
     () =>
       (user?.name ?? '')
@@ -24,6 +28,20 @@ export function ProfilePage() {
 
   if (!user || !data) {
     return null
+  }
+
+  const handleSupport = async () => {
+    setBusy(true)
+    setStatusMessage(null)
+
+    try {
+      const response = await requestEmergencySupport(token, 'chat')
+      setStatusMessage(`${response.message} Ticket ${response.ticketId}.`)
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to contact support right now.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -42,6 +60,12 @@ export function ProfilePage() {
         </div>
         <StatusPill status="verified" />
       </header>
+
+      {statusMessage ? (
+        <div className="rounded-2xl border border-sky-light bg-white px-4 py-3 text-sm text-muted shadow-card">
+          {statusMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="panel-card p-5">
@@ -63,17 +87,18 @@ export function ProfilePage() {
 
       <section className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
         <div className="panel-card p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
               <p className="mono-label">Document vault</p>
               <h2 className="mt-2 text-3xl">Verified records</h2>
             </div>
-            <button
-              type="button"
-              className="text-sm font-semibold text-sky"
+            <Link
+              to="/policy"
+              className="inline-flex items-center gap-2 rounded-full border border-sky-light px-4 py-2 text-sm font-semibold text-navy"
             >
               Manage all
-            </button>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
           <div className="mt-6 space-y-4">
             {data.profile.documents.map((document) => (
@@ -129,15 +154,25 @@ export function ProfilePage() {
           </div>
 
           <div className="panel-card bg-sky-pale p-6">
-            <h2 className="text-3xl">Need assistance?</h2>
-            <p className="mt-3 text-sm leading-7 text-muted">
-              Our dedicated partner support is available 24/7 for policy, claims, and emergency coordination.
-            </p>
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-white text-sky">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-3xl">Need assistance?</h2>
+                <p className="mt-2 text-sm leading-7 text-muted">
+                  Route policy, claims, and emergency questions into a live support ticket.
+                </p>
+              </div>
+            </div>
             <button
               type="button"
-              className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-navy px-5 text-sm font-semibold text-white transition hover:bg-navy-mid"
+              onClick={() => void handleSupport()}
+              disabled={busy}
+              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-white transition hover:bg-navy-mid disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Chat with Kavach AI
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              Chat with Kavach support
             </button>
             <button
               type="button"
@@ -147,8 +182,9 @@ export function ProfilePage() {
                   navigate('/')
                 })()
               }
-              className="mt-4 inline-flex h-11 items-center justify-center rounded-full border border-k-red/20 bg-rose-50 px-5 text-sm font-semibold text-k-red transition hover:bg-rose-100"
+              className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-k-red/20 bg-rose-50 px-5 text-sm font-semibold text-k-red transition hover:bg-rose-100"
             >
+              <LogOut className="h-4 w-4" />
               Log out
             </button>
           </div>

@@ -1,14 +1,40 @@
 import { motion } from 'framer-motion'
-import { AlertTriangle, PhoneCall } from 'lucide-react'
+import { AlertTriangle, Loader2, PhoneCall } from 'lucide-react'
+import { useState } from 'react'
 import { StatusPill } from '../components/StatusPill'
 import { useAppData } from '../context/AppDataContext'
+import { useAuth } from '../context/AuthContext'
 import { pageTransition } from '../lib/motion'
+import { requestEmergencySupport } from '../utils/api'
 
 export function AlertsPage() {
   const { data } = useAppData()
+  const { token, user } = useAuth()
+  const [busy, setBusy] = useState<null | 'support' | 'roadside' | 'chat' | 'hospital'>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   if (!data) {
     return null
+  }
+
+  const handleSupport = async (channel: 'callback' | 'chat' | 'phone', busyKey: typeof busy) => {
+    setBusy(busyKey)
+    setStatusMessage(null)
+
+    try {
+      const response = await requestEmergencySupport(token, channel)
+      setStatusMessage(`${response.message} Ticket ${response.ticketId} · ETA ${response.callbackEtaMinutes} min.`)
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to queue support right now.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const openHospitalLocator = () => {
+    const query = encodeURIComponent(`${user?.city ?? 'near me'} hospitals`)
+    window.open(`https://www.google.com/maps/search/${query}`, '_blank', 'noreferrer')
+    setStatusMessage('Opened hospital locator in a new tab.')
   }
 
   return (
@@ -20,18 +46,26 @@ export function AlertsPage() {
         <div>
           <p className="mono-label">Alert center</p>
           <h1 className="mt-3 text-[44px] leading-none">Kavach Sentinel</h1>
-          <p className="mt-3 text-base text-muted">
-            Monitor live trigger alerts, emergency support and backup contacts from one place.
+          <p className="mt-3 max-w-2xl text-base leading-7 text-muted">
+            Live trigger alerts, emergency support, and backup contacts from one place.
           </p>
         </div>
         <button
           type="button"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-k-green px-5 text-sm font-semibold text-white transition hover:bg-k-green/90"
+          onClick={() => void handleSupport('callback', 'support')}
+          disabled={busy === 'support'}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-k-green px-5 text-sm font-semibold text-white transition hover:bg-k-green/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <PhoneCall className="h-4 w-4" />
+          {busy === 'support' ? <Loader2 className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
           Emergency support
         </button>
       </header>
+
+      {statusMessage ? (
+        <div className="rounded-2xl border border-sky-light bg-white px-4 py-3 text-sm text-muted shadow-card">
+          {statusMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="panel-card p-6">
@@ -82,8 +116,23 @@ export function AlertsPage() {
                   <p className="mt-2 text-sm leading-6 text-muted">{resource.description}</p>
                   <button
                     type="button"
-                    className="mt-4 text-sm font-semibold text-sky"
+                    onClick={() => {
+                      if (resource.title === 'Roadside Assistance') {
+                        void handleSupport('phone', 'roadside')
+                        return
+                      }
+
+                      if (resource.title === 'Guardian Chat') {
+                        void handleSupport('chat', 'chat')
+                        return
+                      }
+
+                      openHospitalLocator()
+                    }}
+                    disabled={busy === 'roadside' || busy === 'chat' || busy === 'hospital'}
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-sky"
                   >
+                    {busy === 'roadside' || busy === 'chat' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {resource.cta}
                   </button>
                 </div>
@@ -96,9 +145,10 @@ export function AlertsPage() {
             <h2 className="mt-2 text-3xl">Backup network</h2>
             <div className="mt-6 space-y-4">
               {data.alerts.supportContacts.map((contact) => (
-                <div
+                <a
                   key={contact.phone}
-                  className="flex items-center justify-between rounded-2xl bg-kavach px-4 py-4"
+                  href={`tel:${contact.phone}`}
+                  className="flex items-center justify-between rounded-2xl bg-kavach px-4 py-4 transition hover:border hover:border-sky-light"
                 >
                   <div className="flex items-center gap-3">
                     <div className="grid h-11 w-11 place-items-center rounded-full bg-navy text-sm font-semibold text-white">
@@ -110,7 +160,7 @@ export function AlertsPage() {
                     </div>
                   </div>
                   <div className="text-sm font-semibold text-sky">{contact.phone}</div>
-                </div>
+                </a>
               ))}
             </div>
           </div>

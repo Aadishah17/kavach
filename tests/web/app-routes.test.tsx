@@ -26,6 +26,10 @@ vi.mock('../../src/pages/OnboardingPage', () => ({
   OnboardingPage: () => <div>Onboarding screen</div>,
 }))
 
+vi.mock('../../src/pages/LoginPage', () => ({
+  LoginPage: () => <div>Login screen</div>,
+}))
+
 vi.mock('../../src/pages/DashboardPage', () => ({
   DashboardPage: () => <div>Dashboard screen</div>,
 }))
@@ -57,6 +61,29 @@ describe('Protected route guards', () => {
     authMocks.useAuth.mockReset()
   })
 
+  test('redirects unauthenticated visitors to the login page', async () => {
+    authMocks.useAuth.mockReturnValue({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      loginAsDemo: vi.fn(),
+      loginWithPhone: vi.fn(),
+      completeOnboarding: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Login screen')).toBeInTheDocument()
+    })
+  })
+
   test('redirects non-admin users away from analytics', async () => {
     authMocks.useAuth.mockReturnValue({
       user: {
@@ -85,6 +112,7 @@ describe('Protected route guards', () => {
       isAuthenticated: true,
       isLoading: false,
       loginAsDemo: vi.fn(),
+      loginWithPhone: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),
     })

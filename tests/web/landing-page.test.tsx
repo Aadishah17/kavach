@@ -30,6 +30,7 @@ describe('Landing page', () => {
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      loginWithPhone: vi.fn(),
       loginAsDemo: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),
@@ -47,5 +48,8 @@ describe('Landing page', () => {
 
     expect(downloadLink).toHaveAttribute('href', '/downloads/kavach-android.apk')
     expect(downloadLink).toHaveAttribute('download')
+
+    expect(screen.getByRole('link', { name: /returning worker login/i })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: /chat with support/i })).toHaveAttribute('href', '/alerts')
   })
 })

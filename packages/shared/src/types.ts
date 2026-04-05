@@ -2,6 +2,12 @@ export type CoverageStatus = 'paid' | 'pending' | 'flagged' | 'active' | 'safe' 
 export type WorkerRole = 'worker' | 'admin'
 export type PlanName = 'Basic' | 'Standard' | 'Pro'
 export type KpiAccent = 'green' | 'sky' | 'gold' | 'navy'
+export type RiskLevel = 'low' | 'moderate' | 'high'
+export type FraudStatus = 'clear' | 'watch' | 'review'
+export type TriggerSource = 'public' | 'mock'
+export type TriggerStatus = 'clear' | 'watch' | 'triggered'
+export type PayoutStatus = 'monitoring' | 'triggered' | 'processing' | 'paid' | 'manual_review' | 'failed'
+export type PaymentProvider = 'upi_mock' | 'razorpay_test' | 'stripe_test'
 
 export type WorkerProfile = {
   id: string
@@ -132,6 +138,64 @@ export type ZoneMapData = {
   zones: ZonePoint[]
 }
 
+export type RiskOutlook = {
+  level: RiskLevel
+  summary: string
+  nextLikelyTrigger: string
+  premiumDelta: number
+  protectedAmount: number
+  coverageHours: number
+  confidence: number
+}
+
+export type FraudSignal = {
+  label: string
+  score: number
+  status: FraudStatus
+  reason: string
+}
+
+export type FraudAssessment = {
+  score: number
+  status: FraudStatus
+  summary: string
+  signals: FraudSignal[]
+}
+
+export type TriggerEvaluation = {
+  id: string
+  name: string
+  source: TriggerSource
+  status: TriggerStatus
+  detail: string
+  probability: number
+}
+
+export type DashboardQuickAction = {
+  id: string
+  label: string
+  description: string
+  action: 'support' | 'receipt' | 'autopay' | 'upgrade' | 'payout'
+  tone: 'primary' | 'secondary' | 'ghost'
+}
+
+export type PayoutState = {
+  reference: string
+  amount: number
+  status: PayoutStatus
+  provider: PaymentProvider
+  rail: string
+  etaMinutes: number
+  updatedAt: string
+}
+
+export type AutopayState = {
+  enabled: boolean
+  mandateStatus: 'active' | 'paused'
+  nextCharge: string
+  note: string
+}
+
 export type AnalyticsKpis = {
   activeWorkers: number
   weeklyPremium: number
@@ -173,6 +237,11 @@ export type DashboardData = {
   alerts: DashboardAlert[]
   activeAlert: ActiveAlert
   payoutHistory: PayoutRow[]
+  riskOutlook: RiskOutlook
+  payoutState: PayoutState
+  fraudAssessment: FraudAssessment
+  triggerEvaluations: TriggerEvaluation[]
+  quickActions: DashboardQuickAction[]
 }
 
 export type ClaimsData = {
@@ -180,12 +249,16 @@ export type ClaimsData = {
   verificationSignals: string[]
   payoutHistory: PayoutRow[]
   premiumHistory: PremiumHistoryItem[]
+  payoutState: PayoutState
+  fraudAssessment: FraudAssessment
 }
 
 export type PolicyData = {
   coverage: PolicyCoverageItem[]
   triggers: TriggerCardData[]
   premiumHistory: PremiumHistoryItem[]
+  dynamicPremium: RiskOutlook
+  autopayState: AutopayState
 }
 
 export type AlertsData = {
@@ -207,6 +280,25 @@ export type AnalyticsData = {
   fraudSignals: ProgressMetric[]
   financialHealth: ProgressMetric[]
   unitEconomics: UnitEconomicsRow[]
+  lossRatio: number
+  predictedClaimsNextWeek: number
+  forecastSummary: string
+  zoneForecasts: Array<{
+    zone: string
+    primaryTrigger: string
+    likelyClaims: number
+    premiumDelta: number
+    confidence: number
+  }>
+  fraudQueue: Array<{
+    id: string
+    workerName: string
+    zone: string
+    riskLabel: FraudStatus
+    score: number
+    reason: string
+  }>
+  recentPayouts: PayoutState[]
 }
 
 export type AppBootstrap = {
@@ -227,6 +319,10 @@ export type SignupPayload = {
   zone: string
   plan: PlanName
   upi: string
+}
+
+export type LoginPayload = {
+  phone: string
 }
 
 export type AuthResponse = {

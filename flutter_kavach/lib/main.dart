@@ -37,8 +37,7 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
 
-    // Show splash/loading while checking session
-    if (provider.isLoading && !provider.isAuthenticated) {
+    if (provider.isBooting) {
       return Scaffold(
         backgroundColor: AppTheme.navy,
         body: Center(

@@ -15,6 +15,9 @@ const LandingPage = lazy(() =>
 const OnboardingPage = lazy(() =>
   import('./pages/OnboardingPage').then((module) => ({ default: module.OnboardingPage })),
 )
+const LoginPage = lazy(() =>
+  import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })),
+)
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
 )
@@ -75,7 +78,7 @@ function ProtectedRoute() {
     return (
       <Navigate
         replace
-        to={`/signup?redirect=${encodeURIComponent(location.pathname)}`}
+        to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`}
       />
     )
   }
@@ -119,6 +122,7 @@ function App() {
         <Routes>
           <Route element={<LandingLayout />}>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
           </Route>
           <Route path="/signup" element={<OnboardingPage />} />
           <Route element={<ProtectedRoute />}>

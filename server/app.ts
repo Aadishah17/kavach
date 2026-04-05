@@ -2,11 +2,28 @@ import { existsSync } from 'node:fs'
 import type { Server } from 'node:http'
 import path from 'node:path'
 import express from 'express'
-import { profileSettingsPayloadSchema, signupSchema } from '../packages/shared/src/contracts.js'
-import { buildSignupUser, staticAppData } from './seed.js'
+import {
+  autopayManagementSchema,
+  loginSchema,
+  payoutSimulationSchema,
+  policyUpgradeSchema,
+  profileSettingsPayloadSchema,
+  signupSchema,
+  supportRequestSchema,
+} from '../packages/shared/src/contracts.js'
+import { buildSignupUser, planCatalog, staticAppData } from './seed.js'
 import { SqliteStore } from './store.js'
 import { FirestoreStore } from './firestore-store.js'
-import type { StoredUser } from './types.js'
+import {
+  buildAnalyticsExportCsv,
+  buildAnalyticsIntelligence,
+  buildDashboardIntelligence,
+  buildFraudAssessment,
+  buildPayoutState,
+  buildRiskOutlook,
+  simulateInstantPayout,
+} from './intelligence.js'
+import type { PlanName, ProfileSetting, StoredUser } from './types.js'
 
 type Store = SqliteStore | FirestoreStore
 
@@ -46,6 +63,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
   const store: Store = useFirestore
     ? new FirestoreStore()
     : new SqliteStore(dbPath, { legacyJsonPath })
+  const simulatedPayouts = new Map<string, { userId: string; payout: ReturnType<typeof buildPayoutState> }>()
   const app = express()
 
   app.use(express.json({ limit: '1mb' }))
@@ -74,9 +92,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       throw new Error('Demo user could not be initialized')
     }
 
-    const session = await store.createSession(user.id)
-    const currentUser = await store.getUserById(user.id)
-    res.status(201).json(buildAuthResponse(currentUser ?? user, session.token))
+    res.status(201).json(await issueSession(store, user))
   }))
 
   app.post('/api/auth/signup', asyncRoute(async (req, res) => {
@@ -105,6 +121,34 @@ export function createKavachServer(options: KavachServerOptions = {}) {
           lastLoginAt: existing.lastLoginAt,
         })
       : await store.upsertUser(built)
+
+    res.status(201).json(await issueSession(store, user))
+  }))
+
+  app.post('/api/auth/login', asyncRoute(async (req, res) => {
+    const parsed = loginSchema.safeParse(req.body)
+
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_login_payload',
+          message: parsed.error.issues[0]?.message ?? 'Invalid login payload',
+        },
+      })
+      return
+    }
+
+    const user = await store.getUserByPhone(parsed.data.phone)
+
+    if (!user) {
+      res.status(404).json({
+        error: {
+          code: 'user_not_found',
+          message: 'No Kavach account was found for that phone number.',
+        },
+      })
+      return
+    }
 
     const session = await store.createSession(user.id)
     const currentUser = await store.getUserById(user.id)
@@ -171,6 +215,8 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       payoutHistory: staticAppData.payoutHistory,
       premiumHistory: staticAppData.premiumHistory,
       verificationSignals: staticAppData.verificationSignals,
+      payoutState: buildPayoutState(auth.user),
+      fraudAssessment: buildFraudAssessment(auth.user),
     })
   }))
 
@@ -192,6 +238,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       fraudSignals: staticAppData.fraudSignals,
       financialHealth: staticAppData.financialHealth,
       unitEconomics: staticAppData.unitEconomics,
+      ...buildAnalyticsIntelligence(auth.user),
     })
   }))
 
@@ -203,9 +250,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
 
     res.json({
       user: publicUser(auth.user),
-      policyCoverage: staticAppData.policyCoverage,
-      premiumHistory: staticAppData.premiumHistory,
-      triggerCards: staticAppData.triggerCards,
+      ...(await buildPolicyRouteData(store, auth.user)),
     })
   }))
 
@@ -256,8 +301,192 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       return
     }
 
-    const settings = await store.updateProfileSettings(auth.user.id, parsed.data.settings)
+    const currentSettings = await store.getProfileSettings(auth.user.id)
+    const settings = await store.updateProfileSettings(
+      auth.user.id,
+      preserveManagedSettings(currentSettings, parsed.data.settings),
+    )
     res.json({ settings })
+  }))
+
+  app.post('/api/payouts/simulate', asyncRoute(async (req, res) => {
+    const auth = await requireAuth(store, req, res)
+    if (!auth) {
+      return
+    }
+
+    const parsed = payoutSimulationSchema.safeParse(req.body ?? {})
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_payout_request',
+          message: parsed.error.issues[0]?.message ?? 'Invalid payout simulation request',
+        },
+      })
+      return
+    }
+
+    const simulation = simulateInstantPayout(auth.user, parsed.data.provider)
+    simulatedPayouts.set(simulation.payout.reference, {
+      userId: auth.user.id,
+      payout: simulation.payout,
+    })
+    res.status(201).json(simulation)
+  }))
+
+  app.get('/api/payouts/:reference/receipt', asyncRoute(async (req, res) => {
+    const auth = await requireAuth(store, req, res)
+    if (!auth) {
+      return
+    }
+
+    const reference = Array.isArray(req.params.reference) ? req.params.reference[0] : req.params.reference
+    const payoutRecord = reference ? simulatedPayouts.get(reference) : undefined
+    if (!payoutRecord || payoutRecord.userId !== auth.user.id) {
+      res.status(404).json({
+        error: {
+          code: 'receipt_not_found',
+          message: 'No payout receipt exists for that reference.',
+        },
+      })
+      return
+    }
+    const payout = payoutRecord.payout
+
+    const receipt = [
+      'Kavach Instant Payout Receipt',
+      `Reference: ${payout.reference}`,
+      `Worker: ${auth.user.name}`,
+      `Zone: ${auth.user.zone}`,
+      `Amount: ₹${payout.amount}`,
+      `Provider: ${payout.provider}`,
+      `Rail: ${payout.rail}`,
+      `Updated: ${payout.updatedAt}`,
+      '',
+      'This is a simulated payout receipt generated for demo verification.',
+    ].join('\n')
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${payout.reference}.txt"`)
+    res.send(receipt)
+  }))
+
+  app.post('/api/support/emergency', asyncRoute(async (req, res) => {
+    const auth = await requireAuth(store, req, res)
+    if (!auth) {
+      return
+    }
+
+    const parsed = supportRequestSchema.safeParse(req.body ?? {})
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_support_request',
+          message: parsed.error.issues[0]?.message ?? 'Invalid support request',
+        },
+      })
+      return
+    }
+
+    res.status(201).json({
+      ticketId: `support-${auth.user.id}-${Date.now()}`,
+      status: 'queued',
+      channel: parsed.data.channel,
+      callbackEtaMinutes: 2,
+      hotline: '1800-313-KAVACH',
+      message: 'Guardian support has been queued and will contact the worker shortly.',
+    })
+  }))
+
+  app.post('/api/policy/upgrade', asyncRoute(async (req, res) => {
+    const auth = await requireAuth(store, req, res)
+    if (!auth) {
+      return
+    }
+
+    if (!requireWorker(auth.user, res)) {
+      return
+    }
+
+    const parsed = policyUpgradeSchema.safeParse(req.body ?? {})
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_policy_upgrade',
+          message: parsed.error.issues[0]?.message ?? 'Invalid policy upgrade request',
+        },
+      })
+      return
+    }
+
+    const updatedUser = await updateUserProfile(store, auth.user, applyPlanUpgrade(auth.user, parsed.data.plan))
+    const settings = await store.getProfileSettings(updatedUser.id)
+    const policy = buildPolicySnapshot(updatedUser, settings)
+
+    res.json({
+      message: `Plan upgraded to Kavach ${parsed.data.plan}.`,
+      user: publicUser(updatedUser),
+      dashboard: buildDashboardData(updatedUser),
+      policy,
+    })
+  }))
+
+  app.post('/api/policy/autopay/manage', asyncRoute(async (req, res) => {
+    const auth = await requireAuth(store, req, res)
+    if (!auth) {
+      return
+    }
+
+    if (!requireWorker(auth.user, res)) {
+      return
+    }
+
+    const parsed = autopayManagementSchema.safeParse(req.body ?? {})
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_autopay_request',
+          message: parsed.error.issues[0]?.message ?? 'Invalid AutoPay management request',
+        },
+      })
+      return
+    }
+
+    const currentSettings = await store.getProfileSettings(auth.user.id)
+    const settings = await store.updateProfileSettings(
+      auth.user.id,
+      upsertAutopaySetting(currentSettings, parsed.data.enabled),
+    )
+
+    const updatedUser = await updateUserProfile(store, auth.user, {
+      nextDeduction: parsed.data.enabled ? defaultNextDeduction() : 'AutoPay paused until you resume weekly deductions',
+    })
+
+    res.json({
+      message: parsed.data.enabled
+        ? 'Weekly AutoPay mandate resumed.'
+        : 'Weekly AutoPay mandate paused for future deductions.',
+      user: publicUser(updatedUser),
+      policy: buildPolicySnapshot(updatedUser, settings),
+      profile: {
+        settings,
+      },
+    })
+  }))
+
+  app.get('/api/analytics/export', asyncRoute(async (req, res) => {
+    const auth = await requireAuth(store, req, res)
+    if (!auth) {
+      return
+    }
+
+    if (!requireAdmin(auth.user, res)) {
+      return
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="kavach-zone-forecast.csv"')
+    res.send(buildAnalyticsExportCsv())
   }))
 
   app.get('/api/app-data/landing', asyncRoute(async (_req, res) => {
@@ -396,21 +625,22 @@ function publicUser(user: StoredUser) {
 
 async function buildAppData(store: Store, user: StoredUser) {
   const settings = await store.getProfileSettings(user.id)
+  const dashboard = buildDashboardData(user)
+  const fraudAssessment = buildFraudAssessment(user)
+  const payoutState = buildPayoutState(user)
 
   return {
     user: publicUser(user),
-    dashboard: buildDashboardData(user),
+    dashboard,
     claims: {
       activeAlert: staticAppData.activeAlert,
       verificationSignals: staticAppData.verificationSignals,
       payoutHistory: staticAppData.payoutHistory,
-      premiumHistory: staticAppData.premiumHistory,
+      premiumHistory: buildPremiumHistory(user),
+      payoutState,
+      fraudAssessment,
     },
-    policy: {
-      coverage: staticAppData.policyCoverage,
-      triggers: staticAppData.triggerCards,
-      premiumHistory: staticAppData.premiumHistory,
-    },
+    policy: buildPolicySnapshot(user, settings),
     alerts: {
       feed: staticAppData.alertsFeed,
       emergencyResources: staticAppData.emergencyResources,
@@ -429,38 +659,42 @@ async function buildAppData(store: Store, user: StoredUser) {
           fraudSignals: staticAppData.fraudSignals,
           financialHealth: staticAppData.financialHealth,
           unitEconomics: staticAppData.unitEconomics,
+          ...buildAnalyticsIntelligence(user),
         }
       : undefined,
   }
 }
 
 function buildDashboardData(user: StoredUser) {
+  const riskOutlook = buildRiskOutlook(user)
+  const payoutState = buildPayoutState(user)
+
   return {
     dateRange: staticAppData.dateRange,
     coverageStatus: staticAppData.coverageStatus,
     kpis: [
       {
-        label: 'Payout this week',
-        value: `₹${staticAppData.activeAlert.payoutAmount}`,
-        hint: '↑ Tuesday rain event',
+        label: 'Earnings protected',
+        value: `₹${Math.round(user.iwi * 1.4).toLocaleString('en-IN')}`,
+        hint: 'Projected this week',
         accent: 'green' as const,
       },
       {
-        label: 'Trust score',
-        value: `${user.trustScore}`,
-        hint: '↑ Excellent',
+        label: 'Active coverage',
+        value: `${riskOutlook.coverageHours} hrs`,
+        hint: riskOutlook.nextLikelyTrigger,
         accent: 'sky' as const,
       },
       {
-        label: 'Days protected',
-        value: '3 days',
-        hint: 'Mon–Wed covered',
+        label: 'Dynamic premium',
+        value: `${riskOutlook.premiumDelta >= 0 ? '+' : ''}₹${riskOutlook.premiumDelta}`,
+        hint: riskOutlook.summary,
         accent: 'gold' as const,
       },
       {
-        label: 'Insured weekly income',
-        value: `₹${user.iwi.toLocaleString('en-IN')}`,
-        hint: user.plan.replace('Kavach ', ''),
+        label: 'Instant payout',
+        value: `₹${payoutState.amount}`,
+        hint: `${payoutState.provider} · ${payoutState.status}`,
         accent: 'navy' as const,
         inverse: true,
       },
@@ -473,7 +707,117 @@ function buildDashboardData(user: StoredUser) {
     alerts: staticAppData.dashboardAlerts,
     activeAlert: staticAppData.activeAlert,
     payoutHistory: staticAppData.payoutHistory,
+    ...buildDashboardIntelligence(user),
   }
+}
+
+async function buildPolicyRouteData(store: Store, user: StoredUser) {
+  const settings = await store.getProfileSettings(user.id)
+  const policy = buildPolicySnapshot(user, settings)
+
+  return {
+    policyCoverage: policy.coverage,
+    premiumHistory: policy.premiumHistory,
+    triggerCards: policy.triggers,
+    dynamicPremium: policy.dynamicPremium,
+    autopayState: policy.autopayState,
+  }
+}
+
+function buildPolicySnapshot(user: StoredUser, settings: ProfileSetting[]) {
+  return {
+    coverage: staticAppData.policyCoverage,
+    premiumHistory: buildPremiumHistory(user),
+    triggers: staticAppData.triggerCards,
+    dynamicPremium: buildRiskOutlook(user),
+    autopayState: buildAutopayState(user, settings),
+  }
+}
+
+async function issueSession(store: Store, user: StoredUser) {
+  const currentUser = await updateUserProfile(store, user, {
+    lastLoginAt: new Date().toISOString(),
+  })
+  const session = await store.createSession(currentUser.id)
+  return buildAuthResponse(currentUser, session.token)
+}
+
+async function updateUserProfile(
+  store: Store,
+  user: StoredUser,
+  updates: Partial<Omit<StoredUser, 'id' | 'createdAt'>>,
+) {
+  return store.upsertUser({
+    ...user,
+    ...updates,
+    id: user.id,
+    createdAt: user.createdAt,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+function applyPlanUpgrade(user: StoredUser, plan: PlanName): Partial<StoredUser> {
+  const pricing = planCatalog[plan]
+
+  return {
+    plan: `Kavach ${plan}`,
+    weeklyPremium: pricing.price,
+    iwi: pricing.income,
+    nextDeduction: defaultNextDeduction(),
+  }
+}
+
+function buildAutopayState(user: StoredUser, settings: ProfileSetting[]) {
+  const autopaySetting = settings.find((setting) => setting.label === 'AutoPay Mandate')
+  const enabled = autopaySetting?.enabled ?? true
+
+  return {
+    enabled,
+    mandateStatus: enabled ? 'active' as const : 'paused' as const,
+    nextCharge: enabled ? user.nextDeduction : 'Paused until you re-enable weekly deductions',
+    note: enabled
+      ? `AutoPay is linked to ${user.upi} and will debit the active weekly premium automatically.`
+      : 'Coverage for the current cycle remains active, but future deductions are paused.',
+  }
+}
+
+function upsertAutopaySetting(settings: ProfileSetting[], enabled: boolean) {
+  const autopaySetting: ProfileSetting = {
+    label: 'AutoPay Mandate',
+    value: enabled ? 'Weekly deduction active' : 'Paused by worker',
+    enabled,
+  }
+
+  const nextSettings = settings.filter((setting) => setting.label !== autopaySetting.label)
+  return [...nextSettings, autopaySetting]
+}
+
+function preserveManagedSettings(currentSettings: ProfileSetting[], nextSettings: ProfileSetting[]) {
+  const currentAutopay = currentSettings.find((setting) => setting.label === 'AutoPay Mandate')
+  if (!currentAutopay || nextSettings.some((setting) => setting.label === currentAutopay.label)) {
+    return nextSettings
+  }
+
+  return [...nextSettings, currentAutopay]
+}
+
+function buildPremiumHistory(user: StoredUser) {
+  return [
+    {
+      cycle: 'Week 14',
+      paidOn: user.nextDeduction,
+      amount: user.weeklyPremium,
+      note: user.nextDeduction.toLowerCase().includes('paused') ? 'AutoPay paused' : 'Weekly AutoPay',
+    },
+    ...staticAppData.premiumHistory.slice(1).map((entry) => ({
+      ...entry,
+      amount: user.weeklyPremium,
+    })),
+  ]
+}
+
+function defaultNextDeduction() {
+  return 'Monday, 13 April 2026'
 }
 
 function requireAdmin(user: StoredUser, res: express.Response) {
@@ -485,6 +829,21 @@ function requireAdmin(user: StoredUser, res: express.Response) {
     error: {
       code: 'forbidden',
       message: 'Admin access required',
+    },
+  })
+
+  return false
+}
+
+function requireWorker(user: StoredUser, res: express.Response) {
+  if (user.role === 'worker') {
+    return true
+  }
+
+  res.status(403).json({
+    error: {
+      code: 'forbidden',
+      message: 'Worker access required',
     },
   })
 

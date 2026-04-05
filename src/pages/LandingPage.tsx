@@ -1,28 +1,15 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, Play, Smartphone } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { MockDashboardCard } from '../components/MockDashboardCard'
 import { PriceCard } from '../components/PriceCard'
 import { TriggerCard } from '../components/TriggerCard'
 import { howItWorksSteps, platformPartners, pricingTiers, problemCards, triggerCards } from '../data/mockData'
 import { pageTransition } from '../lib/motion'
-import { useAuth } from '../context/AuthContext'
 
 const heroStats = ['₹49/week', '<4 min payout', '7 triggers']
 
 export function LandingPage() {
-  const navigate = useNavigate()
-  const { loginAsDemo } = useAuth()
-
-  const openDemo = async () => {
-    try {
-      await loginAsDemo()
-      navigate('/dashboard')
-    } catch (error) {
-      console.error('Unable to open Kavach demo', error)
-    }
-  }
-
   return (
     <motion.main
       {...pageTransition}
@@ -67,14 +54,13 @@ export function LandingPage() {
                 Enroll in 4 Minutes
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <button
-                type="button"
-                onClick={() => void openDemo()}
+              <Link
+                to="/login"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 <Play className="h-4 w-4" />
-                See Live Demo
-              </button>
+                Returning worker login
+              </Link>
               <a
                 href="/downloads/kavach-android.apk"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sky px-6 text-sm font-semibold text-navy transition hover:bg-sky-light"
@@ -247,13 +233,12 @@ export function LandingPage() {
               >
                 Start Free Week
               </Link>
-              <button
-                type="button"
-                onClick={() => void openDemo()}
+              <Link
+                to="/alerts"
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Chat with support
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -281,7 +266,7 @@ export function LandingPage() {
             />
             <FooterColumn
               title="Support"
-              links={['WhatsApp concierge', 'Policy docs', 'Help center', 'Security']}
+              links={['Emergency support', 'Login', 'Policy docs', 'Help center']}
             />
           </div>
           <div className="flex flex-col gap-4 pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
@@ -315,14 +300,34 @@ function FooterColumn({
       <div className="mono-label">{title}</div>
       <div className="mt-4 space-y-3">
         {links.map((link) => (
-          <div
+          <Link
             key={link}
-            className="text-sm text-muted"
+            to={footerHref(link)}
+            className="block text-sm text-muted transition hover:text-navy"
           >
             {link}
-          </div>
+          </Link>
         ))}
       </div>
     </div>
   )
+}
+
+function footerHref(label: string) {
+  const map: Record<string, string> = {
+    'Coverage triggers': '/policy',
+    Pricing: '/#pricing',
+    'Claims automation': '/claims',
+    'Trust score': '/dashboard',
+    'About Kavach': '/#top',
+    'Partner networks': '/#features',
+    'Hackathon build': '/#top',
+    Contact: '/alerts',
+    'Emergency support': '/alerts',
+    Login: '/login',
+    'Policy docs': '/policy',
+    'Help center': '/alerts',
+  }
+
+  return map[label] ?? '/alerts'
 }

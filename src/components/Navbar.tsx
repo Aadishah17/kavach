@@ -1,7 +1,7 @@
 import { Dialog, Transition } from '@headlessui/react'
 import { CalendarDays, Menu, ShieldCheck, X } from 'lucide-react'
 import { Fragment, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { cn } from '../utils/cn'
 import { StatusPill } from './StatusPill'
@@ -11,6 +11,7 @@ const landingLinks = [
   { label: 'Features', href: '/#features' },
   { label: 'How it Works', href: '/#how-it-works' },
   { label: 'Pricing', href: '/#pricing' },
+  { label: 'Support', href: '/alerts' },
 ]
 
 type NavbarProps = {
@@ -19,25 +20,10 @@ type NavbarProps = {
 
 export function Navbar({ isApp = false }: NavbarProps) {
   const [open, setOpen] = useState(false)
-  const { isAuthenticated, loginAsDemo, logout, user } = useAuth()
-  const navigate = useNavigate()
+  const { logout, user } = useAuth()
   const location = useLocation()
 
-  const handleLogin = async () => {
-    if (isAuthenticated) {
-      navigate('/dashboard')
-      return
-    }
-
-    try {
-      await loginAsDemo()
-      navigate('/dashboard')
-    } catch (error) {
-      console.error('Unable to start demo session', error)
-    }
-  }
-
-  const ctaHref = isAuthenticated ? '/dashboard' : '/signup'
+  const ctaHref = '/signup'
 
   return (
     <>
@@ -86,28 +72,28 @@ export function Navbar({ isApp = false }: NavbarProps) {
           <div className="hidden items-center gap-3 lg:flex">
             {isApp ? (
               <>
+                <Link
+                  to="/alerts"
+                  className="text-sm font-medium text-muted transition hover:text-navy"
+                >
+                  Support
+                </Link>
                 <span className="text-sm text-muted">{user?.zone ?? 'Coverage Monitor'}</span>
                 <button
                   type="button"
-                  onClick={() =>
-                    void (async () => {
-                      await logout()
-                      navigate('/')
-                    })()
-                  }
+                  onClick={() => void logout()}
                   className="text-sm font-medium text-muted transition hover:text-navy"
                 >
                   Log out
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => void handleLogin()}
+              <Link
+                to="/login"
                 className="text-sm font-medium text-muted transition hover:text-navy"
               >
                 Log in
-              </button>
+              </Link>
             )}
 
             <Link
@@ -194,13 +180,19 @@ export function Navbar({ isApp = false }: NavbarProps) {
                         <p className="mono-label !text-sky-light">Coverage Monitor</p>
                         <p className="mt-2 text-lg">{user?.zone ?? 'Bengaluru live zone'}</p>
                       </div>
+                      <Link
+                        to="/alerts"
+                        onClick={() => setOpen(false)}
+                        className="block rounded-2xl border border-white/10 px-5 py-4 text-lg text-white/80"
+                      >
+                        Support
+                      </Link>
                       <button
                         type="button"
                         onClick={() =>
                           void (async () => {
                             await logout()
                             setOpen(false)
-                            navigate('/')
                           })()
                         }
                         className="w-full rounded-2xl border border-white/10 px-5 py-4 text-left text-lg text-white/80"
@@ -209,16 +201,13 @@ export function Navbar({ isApp = false }: NavbarProps) {
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpen(false)
-                        void handleLogin()
-                      }}
-                      className="mt-6 w-full rounded-2xl border border-white/10 px-5 py-4 text-left text-lg text-white/80"
+                    <Link
+                      to="/login"
+                      onClick={() => setOpen(false)}
+                      className="mt-6 block rounded-2xl border border-white/10 px-5 py-4 text-left text-lg text-white/80"
                     >
                       Log in
-                    </button>
+                    </Link>
                   )}
 
                   <Link

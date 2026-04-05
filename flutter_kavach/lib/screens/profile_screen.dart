@@ -1,255 +1,404 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../providers/app_provider.dart';
-import '../models/app_data.dart';
 import 'package:provider/provider.dart';
 
-class ProfileScreen extends StatefulWidget {
+import '../models/app_data.dart';
+import '../providers/app_provider.dart';
+import '../theme/app_theme.dart';
+
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
-  @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  late bool _smartAlerts;
-  late bool _biometric;
-
-  @override
-  void initState() {
-    super.initState();
-    final provider = context.read<AppProvider>();
-    final settings = provider.appData?.profileSettings ?? {};
-    _smartAlerts = settings['smartAlerts'] as bool? ?? true;
-    _biometric = settings['biometricLock'] as bool? ?? true;
-  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     final data = provider.appData;
-    final documents = data?.profileDocuments ?? [];
+
+    if (provider.dataState == AppDataState.loading) {
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.navy)),
+      );
+    }
+
+    if (data == null) {
+      return Scaffold(
+        backgroundColor: AppTheme.background,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: _EmptyState(
+                title: 'Profile unavailable',
+                body: provider.errorMessage ?? 'Sign in to see your worker profile and preferences.',
+                actionLabel: 'Retry',
+                onAction: provider.isAuthenticated ? () => provider.loadAppData() : null,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final settings = data.profileSettings;
+    final smartAlerts = settings['smartAlerts'] as bool? ?? false;
+    final biometricLock = settings['biometricLock'] as bool? ?? false;
+    final language = settings['language']?.toString() ?? 'English';
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
+      appBar: AppBar(title: const Text('Profile')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileHeader(
-              context,
-              data?.userName ?? 'Worker',
-              data?.platform != null ? '${data!.platform} Pilot' : 'Gig Worker',
-            ),
+            _ProfileHeader(name: data.userName, platform: data.platform, zone: data.zone),
+            const SizedBox(height: 16),
+            _SummaryCard(data: data),
+            const SizedBox(height: 16),
+            Text('Linked documents', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
-            // Plan & Zone info
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceLowest,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Plan', style: Theme.of(context).textTheme.labelMedium),
-                        const SizedBox(height: 2),
-                        Text(data?.plan ?? '—', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                  Container(width: 1, height: 36, color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Active Zone', style: Theme.of(context).textTheme.labelMedium),
-                        const SizedBox(height: 2),
-                        Text(data?.zone ?? '—', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            if (data.profileDocuments.isEmpty)
+              const _EmptyInline(title: 'No documents synced', body: 'Your backend profile bundle did not include document records.')
+            else
+              ...data.profileDocuments.map((document) => _DocumentCard(document: document)),
+            const SizedBox(height: 16),
+            Text('Preferences', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            _PreferenceCard(
+              title: 'Smart alerts',
+              subtitle: smartAlerts ? 'Enabled for live risk updates' : 'Disabled',
+              value: smartAlerts,
             ),
-            const SizedBox(height: 32),
-            Text('Linked Documents', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
+            _PreferenceCard(
+              title: 'Biometric lock',
+              subtitle: biometricLock ? 'Enabled on this device' : 'Disabled',
+              value: biometricLock,
+            ),
+            const SizedBox(height: 10),
+            _PreferenceCard(
+              title: 'Language',
+              subtitle: language,
+              value: true,
+            ),
             const SizedBox(height: 16),
-            _buildLinkedDocuments(context, documents),
-            const SizedBox(height: 32),
-            Text('Settings', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            _buildSettings(context),
-            const SizedBox(height: 48),
-            _buildSignOutButton(context, provider),
+            _SupportAndSignOut(provider: provider),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildProfileHeader(BuildContext context, String name, String subtitle) {
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.name,
+    required this.platform,
+    required this.zone,
+  });
+
+  final String name;
+  final String platform;
+  final String zone;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundColor: AppTheme.surfaceLow,
-          child: const Icon(Icons.person, size: 40, color: AppTheme.navy),
+        const CircleAvatar(
+          radius: 34,
+          backgroundColor: AppTheme.navy,
+          child: Icon(Icons.person_rounded, color: Colors.white, size: 34),
         ),
-        const SizedBox(width: 20),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(name, style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.skyBlue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(subtitle, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppTheme.skyBlue)),
-            ),
-          ],
-        )
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 4),
+              Text('$platform · $zone', style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
       ],
     );
   }
+}
 
-  Widget _buildLinkedDocuments(BuildContext context, List<ProfileDocument> documents) {
-    // Use API data if available, otherwise fallback
-    final displayDocs = documents.isNotEmpty
-        ? documents
-        : [
-            ProfileDocument(label: 'Aadhaar Card', status: 'Verified', icon: 'article', verified: true),
-            ProfileDocument(label: 'Driving License', status: 'Active', icon: 'drive', verified: false),
-          ];
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.data});
 
+  final AppData data;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: displayDocs.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final doc = entry.value;
-          final statusColor = doc.verified ? AppTheme.green : AppTheme.skyBlue;
-
-          IconData icon;
-          switch (doc.icon) {
-            case 'article':
-              icon = Icons.article_rounded;
-              break;
-            case 'drive':
-              icon = Icons.drive_eta_rounded;
-              break;
-            default:
-              icon = Icons.description_rounded;
-          }
-
-          return Column(
-            children: [
-              if (idx > 0) Divider(height: 1, color: AppTheme.outlineVariant.withValues(alpha: 0.2)),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(color: AppTheme.surfaceLow, shape: BoxShape.circle),
-                      child: Icon(icon, color: AppTheme.navy, size: 20),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(doc.label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              if (doc.verified) const Icon(Icons.verified, size: 14, color: AppTheme.green),
-                              if (doc.verified) const SizedBox(width: 4),
-                              Text(doc.status, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: statusColor)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildSettings(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Column(
         children: [
-          SwitchListTile(
-            title: Text('Smart Alerts', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-            subtitle: Text('Notify me during peak hours', style: Theme.of(context).textTheme.labelMedium),
-            value: _smartAlerts,
-            onChanged: (v) => setState(() => _smartAlerts = v),
-            activeThumbColor: AppTheme.skyBlue,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryItem(label: 'Plan', value: data.plan),
+              ),
+              Expanded(
+                child: _SummaryItem(label: 'Weekly income', value: '₹${data.insuredIncome}'),
+              ),
+            ],
           ),
-          Divider(height: 1, color: AppTheme.outlineVariant.withValues(alpha: 0.2)),
-          ListTile(
-            title: Text('App Language', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-            subtitle: Text('English', style: Theme.of(context).textTheme.labelMedium),
-            trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            onTap: () {},
-          ),
-          Divider(height: 1, color: AppTheme.outlineVariant.withValues(alpha: 0.2)),
-          SwitchListTile(
-            title: Text('Biometric Lock', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-            subtitle: Text('Face ID enabled', style: Theme.of(context).textTheme.labelMedium),
-            value: _biometric,
-            onChanged: (v) => setState(() => _biometric = v),
-            activeThumbColor: AppTheme.skyBlue,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryItem(label: 'Coverage', value: data.coverageStatus),
+              ),
+              Expanded(
+                child: _SummaryItem(
+                  label: 'Monthly protected',
+                  value: data.monthlyProtectedAmount > 0 ? '₹${data.monthlyProtectedAmount}' : 'Unavailable',
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildSignOutButton(BuildContext context, AppProvider provider) {
-    return SizedBox(
+class _SummaryItem extends StatelessWidget {
+  const _SummaryItem({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 4),
+        Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
+      ],
+    );
+  }
+}
+
+class _DocumentCard extends StatelessWidget {
+  const _DocumentCard({required this.document});
+
+  final ProfileDocument document;
+
+  @override
+  Widget build(BuildContext context) {
+    final verified = document.verified;
+    final tone = verified ? AppTheme.green : AppTheme.skyBlue;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_iconFor(document.icon), color: tone, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(document.label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(document.status, style: Theme.of(context).textTheme.labelLarge),
+              ],
+            ),
+          ),
+          if (verified) const Icon(Icons.verified_rounded, color: AppTheme.green),
+        ],
+      ),
+    );
+  }
+
+  IconData _iconFor(String icon) {
+    switch (icon) {
+      case 'article':
+        return Icons.article_rounded;
+      case 'drive':
+        return Icons.drive_eta_rounded;
+      default:
+        return Icons.description_rounded;
+    }
+  }
+}
+
+class _PreferenceCard extends StatelessWidget {
+  const _PreferenceCard({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
       width: double.infinity,
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppTheme.red),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: Theme.of(context).textTheme.labelLarge),
+              ],
+            ),
+          ),
+          Icon(value ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: value ? AppTheme.green : AppTheme.textSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportAndSignOut extends StatelessWidget {
+  const _SupportAndSignOut({required this.provider});
+
+  final AppProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final ticket = await provider.requestEmergencySupport(channel: 'phone');
+              if (!context.mounted || ticket == null) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Support ${ticket.ticketId} queued')),
+              );
+            },
+            icon: const Icon(Icons.support_agent_rounded),
+            label: const Text('Request support'),
+          ),
         ),
-        onPressed: () async {
-          await provider.logout();
-        },
-        child: Text('Sign Out', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.red)),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppTheme.red),
+              foregroundColor: AppTheme.red,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            onPressed: () => provider.logout(),
+            child: const Text('Sign out'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.title,
+    required this.body,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String title;
+  final String body;
+  final String actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline_rounded, size: 44, color: AppTheme.navy),
+          const SizedBox(height: 12),
+          Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Text(body, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+          if (onAction != null && actionLabel.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ElevatedButton(onPressed: onAction, child: Text(actionLabel)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyInline extends StatelessWidget {
+  const _EmptyInline({
+    required this.title,
+    required this.body,
+  });
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(body, style: Theme.of(context).textTheme.labelLarge),
+        ],
       ),
     );
   }

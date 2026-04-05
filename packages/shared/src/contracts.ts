@@ -13,6 +13,10 @@ export const signupSchema = z.object({
   upi: z.string().trim().min(3),
 })
 
+export const loginSchema = z.object({
+  phone: z.string().trim().min(6),
+})
+
 export const profileSettingSchema = z.object({
   label: z.string().trim().min(1),
   value: z.string().trim().min(1),
@@ -22,4 +26,20 @@ export const profileSettingSchema = z.object({
 
 export const profileSettingsPayloadSchema = z.object({
   settings: z.array(profileSettingSchema),
+})
+
+export const payoutSimulationSchema = z.object({
+  provider: z.enum(['upi_mock', 'razorpay_test', 'stripe_test']).default('upi_mock'),
+})
+
+export const supportRequestSchema = z.object({
+  channel: z.enum(['callback', 'chat', 'phone']).default('callback'),
+})
+
+export const policyUpgradeSchema = z.object({
+  plan: planNameSchema,
+})
+
+export const autopayManagementSchema = z.object({
+  enabled: z.boolean(),
 })

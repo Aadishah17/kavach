@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
+
 import '../models/app_data.dart';
+import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 
 class AlertsScreen extends StatelessWidget {
@@ -11,251 +12,350 @@ class AlertsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     final data = provider.appData;
-    final feedItems = data?.alertsFeed ?? [];
-    final emergencyResources = data?.emergencyResources ?? [];
+
+    if (provider.dataState == AppDataState.loading) {
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.navy)),
+      );
+    }
+
+    if (data == null) {
+      return Scaffold(
+        backgroundColor: AppTheme.background,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: _EmptyState(
+                title: 'Alerts unavailable',
+                body: provider.errorMessage ?? 'Sign in to see notifications and emergency resources.',
+                actionLabel: 'Retry',
+                onAction: provider.isAuthenticated ? () => provider.loadAppData() : null,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Alerts & Notifications'),
+        title: const Text('Alerts & support'),
       ),
       body: RefreshIndicator(
         color: AppTheme.navy,
-        onRefresh: () => provider.loadAppData(),
+        onRefresh: provider.loadAppData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildLiveStatusBanner(context),
-              const SizedBox(height: 24),
-              if (feedItems.isNotEmpty) ...[
-                Text('Notifications', style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 16),
-                ...feedItems.map((item) => _buildAlertItem(
-                      context,
-                      icon: _iconForString(item.icon),
-                      title: item.title,
-                      subtitle: item.body,
-                      time: item.time,
-                      accentColor: _colorForAccent(item.accent),
-                      isUrgent: item.accent == 'red',
-                    )),
-              ] else ...[
-                _buildAlertItem(
-                  context,
-                  icon: Icons.cloud,
-                  title: 'Heavy Rain Alert – Koramangala',
-                  subtitle: 'Parametric trigger activated. Estimated payout: ₹571',
-                  time: '2h ago',
-                  accentColor: AppTheme.red,
-                  isUrgent: true,
-                ),
-                _buildAlertItem(
-                  context,
-                  icon: Icons.check_circle_outline,
-                  title: 'Daily Premium Paid',
-                  subtitle: 'AutoPay of ₹12.00 processed successfully',
-                  time: '6h ago',
-                  accentColor: AppTheme.green,
-                ),
-                _buildAlertItem(
-                  context,
-                  icon: Icons.verified_user,
-                  title: 'Verification Success',
-                  subtitle: 'GPS + movement data validated for today',
-                  time: '8h ago',
-                  accentColor: AppTheme.skyBlue,
-                ),
-              ],
-              const SizedBox(height: 32),
-              _buildEmergencyResources(context, emergencyResources),
+              _BuildSupportCard(
+                onEmergencySupport: () async {
+                  final ticket = await provider.requestEmergencySupport(channel: 'callback');
+                  if (!context.mounted || ticket == null) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Support ${ticket.ticketId} queued')),
+                  );
+                },
+                lastTicket: provider.lastSupportTicket,
+              ),
+              const SizedBox(height: 16),
+              Text('Notification feed', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              if (data.alertsFeed.isEmpty)
+                _EmptySection(title: 'No recent alerts', body: 'The app will show payout, weather, and support updates here.')
+              else
+                ...data.alertsFeed.map((item) => _FeedCard(item: item)),
+              const SizedBox(height: 16),
+              Text('Emergency resources', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              if (data.emergencyResources.isEmpty)
+                _EmptySection(title: 'No emergency resources', body: 'Support resources will appear here when the backend returns them.')
+              else
+                ...data.emergencyResources.map((resource) => _ResourceCard(resource: resource)),
+              const SizedBox(height: 16),
+              Text('Support contacts', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              if (data.supportContacts.isEmpty)
+                _EmptySection(title: 'No contacts linked', body: 'Worker support contacts are loaded from your profile bundle.')
+              else
+                ...data.supportContacts.map((contact) => _ContactCard(contact: contact)),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  IconData _iconForString(String icon) {
-    switch (icon) {
-      case 'cloud':
-        return Icons.cloud;
-      case 'check':
-        return Icons.check_circle_outline;
-      case 'shield':
-        return Icons.verified_user;
-      case 'wallet':
-        return Icons.account_balance_wallet;
-      case 'score':
-        return Icons.shield_rounded;
-      case 'rain':
-        return Icons.water_drop;
-      case 'warning':
-        return Icons.warning_amber_rounded;
-      default:
-        return Icons.notifications_outlined;
-    }
-  }
+class _BuildSupportCard extends StatelessWidget {
+  const _BuildSupportCard({
+    required this.onEmergencySupport,
+    required this.lastTicket,
+  });
 
-  Color _colorForAccent(String accent) {
-    switch (accent) {
-      case 'red':
-        return AppTheme.red;
-      case 'green':
-        return AppTheme.green;
-      case 'gold':
-        return AppTheme.gold;
-      case 'sky':
-        return AppTheme.skyBlue;
-      default:
-        return AppTheme.skyBlue;
-    }
-  }
+  final Future<void> Function() onEmergencySupport;
+  final SupportTicket? lastTicket;
 
-  Widget _buildLiveStatusBanner(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppTheme.navy, Color(0xFF002F5F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.green.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.radar, color: AppTheme.green, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'DIGITAL GUARDIAN ACTIVE',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppTheme.green,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Monitoring weather, GPS & network signals',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAlertItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String time,
-    required Color accentColor,
-    bool isUrgent = false,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: isUrgent
-            ? Border.all(color: accentColor.withValues(alpha: 0.4), width: 2)
-            : null,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: accentColor, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: Theme.of(context).textTheme.labelMedium),
-              ],
-            ),
-          ),
-          Text(time, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.textSecondary)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmergencyResources(BuildContext context, List<EmergencyResource> resources) {
-    // Use API data if available, otherwise fallback
-    final displayResources = resources.isNotEmpty
-        ? resources
-        : [
-            EmergencyResource(label: 'NDRF Helpline', number: '1078', icon: 'hospital'),
-            EmergencyResource(label: 'Kavach Support', number: '1800-XXX-XXXX', icon: 'phone'),
-            EmergencyResource(label: 'Police', number: '112', icon: 'police'),
-          ];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceLow,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Emergency Resources', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          ...displayResources.map((r) {
-            IconData icon;
-            switch (r.icon) {
-              case 'hospital':
-                icon = Icons.local_hospital;
-                break;
-              case 'police':
-                icon = Icons.local_police;
-                break;
-              default:
-                icon = Icons.phone;
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Icon(icon, size: 18, color: AppTheme.skyBlue),
-                  const SizedBox(width: 12),
-                  Text(r.label, style: Theme.of(context).textTheme.bodyMedium),
-                  const Spacer(),
-                  Text(r.number, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600, color: AppTheme.skyBlue)),
-                ],
-              ),
-            );
-          }),
+          Text('Emergency support', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)),
+          const SizedBox(height: 8),
+          Text(
+            'Trigger a callback from the worker support desk if you need help now.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.45),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            onPressed: onEmergencySupport,
+            icon: const Icon(Icons.support_agent_rounded),
+            label: const Text('Request callback'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: AppTheme.navy),
+          ),
+          if (lastTicket != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Last ticket ${lastTicket!.ticketId} · ${lastTicket!.status}',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white70),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedCard extends StatelessWidget {
+  const _FeedCard({required this.item});
+
+  final AlertFeedItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _accent(item.accent).withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_iconFor(item.icon), color: _accent(item.accent), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(item.body, style: Theme.of(context).textTheme.labelLarge),
+              ],
+            ),
+          ),
+          if (item.time.isNotEmpty) Text(item.time, style: Theme.of(context).textTheme.labelMedium),
+        ],
+      ),
+    );
+  }
+
+  IconData _iconFor(String icon) {
+    switch (icon) {
+      case 'wallet':
+        return Icons.account_balance_wallet_rounded;
+      case 'shield':
+        return Icons.verified_user_rounded;
+      case 'phone':
+        return Icons.phone_rounded;
+      case 'cloud':
+        return Icons.cloud_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  Color _accent(String accent) {
+    switch (accent) {
+      case 'green':
+        return AppTheme.green;
+      case 'gold':
+        return AppTheme.gold;
+      case 'red':
+        return AppTheme.red;
+      default:
+        return AppTheme.skyBlue;
+    }
+  }
+}
+
+class _ResourceCard extends StatelessWidget {
+  const _ResourceCard({required this.resource});
+
+  final EmergencyResource resource;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(resource.label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+          if (resource.description.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(resource.description, style: Theme.of(context).textTheme.labelLarge),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(resource.number, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.navy)),
+              const Spacer(),
+              Text(resource.cta, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppTheme.skyBlue)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactCard extends StatelessWidget {
+  const _ContactCard({required this.contact});
+
+  final SupportContact contact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.14),
+            child: Text(contact.initials, style: const TextStyle(color: AppTheme.skyBlue, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(contact.name, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(contact.relation, style: Theme.of(context).textTheme.labelLarge),
+              ],
+            ),
+          ),
+          Text(contact.phone, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.navy, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.title,
+    required this.body,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String title;
+  final String body;
+  final String actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.notifications_none_rounded, size: 44, color: AppTheme.navy),
+          const SizedBox(height: 12),
+          Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Text(body, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+          if (onAction != null && actionLabel.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ElevatedButton(onPressed: onAction, child: Text(actionLabel)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySection extends StatelessWidget {
+  const _EmptySection({
+    required this.title,
+    required this.body,
+  });
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(body, style: Theme.of(context).textTheme.labelLarge),
         ],
       ),
     );

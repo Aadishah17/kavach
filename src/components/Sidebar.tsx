@@ -6,7 +6,7 @@ import {
   ShieldCheck,
   UserCircle2,
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { cn } from '../utils/cn'
 import { formatCurrency } from '../utils/format'
@@ -88,12 +88,12 @@ export function Sidebar() {
         <p className="mt-2 text-sm text-sky-light/80">
           Weekly premium {formatCurrency(user?.weeklyPremium ?? 49)}
         </p>
-        <button
-          type="button"
-          className="mt-5 w-full rounded-full bg-gold px-4 py-3 text-sm font-semibold text-navy"
+        <Link
+          to="/policy#upgrade"
+          className="mt-5 block w-full rounded-full bg-gold px-4 py-3 text-center text-sm font-semibold text-navy"
         >
           Upgrade plan
-        </button>
+        </Link>
       </div>
     </aside>
   )
