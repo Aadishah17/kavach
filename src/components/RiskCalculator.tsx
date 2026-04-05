@@ -28,11 +28,13 @@ export function RiskCalculator() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-mono uppercase tracking-widest text-sky-light/60">
+              <label htmlFor="shifts-input" className="text-xs font-mono uppercase tracking-widest text-sky-light/60">
                 Weekly At-Risk Shifts
               </label>
               <input
+                id="shifts-input"
                 type="range"
+                title="Weekly At-Risk Shifts"
                 min="1"
                 max="14"
                 value={shifts}
