@@ -72,7 +72,7 @@ describe('Protected route guards', () => {
       isAuthenticated: false,
       isLoading: false,
       loginAsDemo: vi.fn(),
-      loginWithPhone: vi.fn(),
+      loginWithIdentifier: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),
     })
@@ -116,7 +116,7 @@ describe('Protected route guards', () => {
       isAuthenticated: true,
       isLoading: false,
       loginAsDemo: vi.fn(),
-      loginWithPhone: vi.fn(),
+      loginWithIdentifier: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),
     })
@@ -141,7 +141,7 @@ describe('Protected route guards', () => {
       isAuthenticated: false,
       isLoading: false,
       loginAsDemo: vi.fn(),
-      loginWithPhone: vi.fn(),
+      loginWithIdentifier: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),
     })

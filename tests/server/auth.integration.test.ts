@@ -122,6 +122,7 @@ describe('Kavach API auth and session flows', () => {
   test('logs in an existing worker and returns intelligent dashboard data', async () => {
     const payload: SignupPayload = {
       name: 'Meera Jain',
+      email: 'meera@kavach.app',
       phone: '+91 9988776655',
       platforms: ['Swiggy'],
       city: 'Bengaluru',
@@ -136,18 +137,29 @@ describe('Kavach API auth and session flows', () => {
     })
 
     assert.equal(signup.response.status, 201)
+    assert.equal(typeof signup.json?.user.email, 'string')
 
     const login = await apiRequest('/api/auth/login', {
       method: 'POST',
-      body: { phone: payload.phone },
+      body: { identifier: payload.phone },
     })
 
     assert.equal(login.response.status, 201)
     assert.equal(login.json?.user.phone, payload.phone)
+    assert.equal(login.json?.user.email, signup.json?.user.email)
     assert.equal(typeof login.json?.user.lastLoginAt, 'string')
 
+    const emailLogin = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: { identifier: signup.json?.user.email },
+    })
+
+    assert.equal(emailLogin.response.status, 201)
+    assert.equal(emailLogin.json?.user.phone, payload.phone)
+    assert.equal(emailLogin.json?.user.email, signup.json?.user.email)
+
     const dashboard = await apiRequest('/api/app-data/dashboard', {
-      token: String(login.json?.token),
+      token: String(emailLogin.json?.token),
     })
 
     assert.equal(dashboard.response.status, 200)
@@ -157,6 +169,35 @@ describe('Kavach API auth and session flows', () => {
     assert.equal(typeof dashboard.json?.fraudAssessment?.score, 'number')
     assert.equal(Array.isArray(dashboard.json?.fraudAssessment?.signals), true)
     assert.equal(Array.isArray(dashboard.json?.quickActions), true)
+  })
+
+  test('logs in an existing worker by email', async () => {
+    const payload: SignupPayload = {
+      name: 'Neha Sharma',
+      phone: '+91 9812345678',
+      platforms: ['Swiggy'],
+      city: 'Bengaluru',
+      zone: 'HSR Layout',
+      plan: 'Standard',
+      upi: 'neha@upi',
+    }
+
+    const signup = await apiRequest('/api/auth/signup', {
+      method: 'POST',
+      body: payload,
+    })
+
+    assert.equal(signup.response.status, 201)
+    assert.equal(typeof signup.json?.user.email, 'string')
+
+    const login = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: { identifier: signup.json?.user.email },
+    })
+
+    assert.equal(login.response.status, 201)
+    assert.equal(login.json?.user.email, signup.json?.user.email)
+    assert.equal(login.json?.user.phone, payload.phone)
   })
 
   test('supports mock OTP signup verification and creates a worker session', async () => {

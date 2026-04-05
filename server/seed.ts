@@ -463,7 +463,7 @@ export function buildSignupUser(input: SignupInput) {
 
   const user: StoredUser = {
     id: randomUUID(),
-    email: `${input.phone.replace(/\D/g, '') || 'worker'}@kavach.local`,
+    email: normalizeSignupEmail(input),
     status: 'active',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -485,4 +485,13 @@ export function buildSignupUser(input: SignupInput) {
   }
 
   return user
+}
+
+function normalizeSignupEmail(input: SignupInput) {
+  const provided = input.email?.trim().toLowerCase()
+  if (provided) {
+    return provided
+  }
+
+  return `${input.phone.replace(/\D/g, '') || 'worker'}@kavach.local`
 }

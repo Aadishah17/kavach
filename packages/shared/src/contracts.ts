@@ -5,6 +5,7 @@ export const planNameSchema = z.enum(['Basic', 'Standard', 'Pro'])
 
 export const signupSchema = z.object({
   name: z.string().trim().min(2),
+  email: z.union([z.string().trim().email(), z.literal('')]).optional(),
   phone: z.string().trim().min(6),
   platforms: z.array(z.string().trim().min(1)).min(1),
   city: z.string().trim().min(2),
@@ -14,7 +15,17 @@ export const signupSchema = z.object({
 })
 
 export const loginSchema = z.object({
-  phone: z.string().trim().min(6),
+  identifier: z.string().trim().min(3).optional(),
+  phone: z.string().trim().min(6).optional(),
+  email: z.string().trim().email().optional(),
+}).superRefine((value, ctx) => {
+  if (!value.identifier && !value.phone && !value.email) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Phone number or email is required',
+      path: ['identifier'],
+    })
+  }
 })
 
 export const otpRequestSchema = z.object({

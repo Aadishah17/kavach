@@ -313,6 +313,7 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email) WHERE email IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_profile_settings_user_sort ON profile_settings(user_id, sort_order);
       CREATE INDEX IF NOT EXISTS idx_otp_phone_status ON otp_challenges(phone_normalized, status);
       CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
@@ -341,6 +342,14 @@ export class SqliteStore {
     const row = this.database
       .prepare('SELECT * FROM users WHERE phone_normalized = ?')
       .get(normalizePhone(phone)) as UserRow | undefined
+
+    return row ? this.mapUserRow(row) : null
+  }
+
+  async getUserByEmail(email: string) {
+    const row = this.database
+      .prepare('SELECT * FROM users WHERE lower(email) = lower(?)')
+      .get(email.trim()) as UserRow | undefined
 
     return row ? this.mapUserRow(row) : null
   }
@@ -378,7 +387,7 @@ export class SqliteStore {
         role = excluded.role
     `).run({
       id: user.id,
-      email: user.email ?? null,
+      email: normalizeEmail(user.email) ?? null,
       status: user.status,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -1068,6 +1077,11 @@ export class SqliteStore {
 
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '')
+}
+
+function normalizeEmail(email?: string | null) {
+  const normalized = email?.trim().toLowerCase()
+  return normalized ? normalized : null
 }
 
 function hashToken(token: string) {

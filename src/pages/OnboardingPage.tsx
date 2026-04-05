@@ -17,6 +17,7 @@ const zoneSuggestions: Record<string, string[]> = {
 
 type FormState = {
   name: string
+  email: string
   phone: string
   platforms: string[]
   city: string
@@ -34,6 +35,7 @@ export function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState<FormState>({
     name: '',
+    email: '',
     phone: '',
     platforms: [],
     city: 'Bengaluru',
@@ -60,6 +62,16 @@ export function OnboardingPage() {
                 value={form.name}
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
                 placeholder="Arjun Kumar"
+              />
+            </Field>
+            <Field label="Email address (optional)">
+              <input
+                className="form-input"
+                value={form.email}
+                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                placeholder="aman@kavach.app"
+                inputMode="email"
+                autoComplete="email"
               />
             </Field>
             <Field label="Phone number">
@@ -238,6 +250,7 @@ export function OnboardingPage() {
       try {
         await completeOnboarding({
           name: form.name,
+          email: form.email.trim() || undefined,
           phone: form.phone,
           platforms: form.platforms,
           city: form.city,
@@ -314,6 +327,13 @@ export function OnboardingPage() {
           <div className="absolute inset-y-0 right-0 hidden w-48 rounded-l-full bg-sky-pale/80 lg:block" />
 
           <div className="relative w-full max-w-2xl rounded-[36px] bg-white p-6 shadow-lg sm:p-10">
+            <div className="mb-6 rounded-[24px] bg-kavach px-4 py-4 lg:hidden">
+              <p className="mono-label">Mobile onboarding</p>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Add your contact, pick a plan, and activate payouts without switching screens.
+              </p>
+            </div>
+
             <div className="mb-8 flex items-center justify-between gap-4">
               <div className="flex gap-2">
                 {steps.map((_, index) => (

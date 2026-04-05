@@ -126,10 +126,10 @@ export async function loginDemo() {
   return requestJson<AuthResponse>('/api/auth/demo', { method: 'POST' })
 }
 
-export async function loginWithPhone(phone: string) {
+export async function loginWithIdentifier(identifier: string) {
   return requestJson<AuthResponse>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ identifier }),
   })
 }
 

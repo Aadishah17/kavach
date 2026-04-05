@@ -232,6 +232,62 @@ export function DashboardPage() {
         transition={{ ...sectionReveal.transition, delay: 0.1 }}
         className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]"
       >
+        <div className="panel-card p-6 sm:p-7">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="mono-label">Action center</p>
+              <h2 className="mt-2 text-2xl font-serif text-navy">Do something useful now</h2>
+            </div>
+            <Sparkles className="h-5 w-5 text-gold" />
+          </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {dashboard.quickActions.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                disabled={busyAction === action.id || (action.id === 'upgrade' && currentPlan === 'Pro')}
+                onClick={() => void handleAction(action.id)}
+                className="group flex w-full items-start justify-between gap-4 rounded-[24px] border border-sky-light bg-white px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-sky hover:shadow-card focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <div className="space-y-1">
+                  <div className="font-semibold text-navy">{actionLabel(action.id)}</div>
+                  <p className="text-sm leading-6 text-muted">{action.description}</p>
+                </div>
+                {busyAction === action.id ? (
+                  <Loader2 className="mt-1 h-4 w-4 animate-spin text-sky" />
+                ) : action.id === 'receipt' ? (
+                  <ReceiptText className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
+                ) : action.id === 'support' ? (
+                  <ShieldAlert className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
+                ) : action.id === 'autopay' ? (
+                  <ShieldCheck className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
+                ) : (
+                  <HandCoins className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
+                )}
+                </button>
+              ))}
+            </div>
+
+            {statusMessage ? (
+            <div
+              className={`mt-5 rounded-[24px] px-4 py-4 text-sm ${
+                statusTone === 'green'
+                  ? 'bg-[#E6F4EF] text-k-green'
+                  : statusTone === 'gold'
+                    ? 'bg-gold-light text-gold'
+                    : 'bg-[#FDE8E8] text-k-red'
+              }`}
+            >
+              {statusMessage}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-[24px] bg-sky-pale/60 px-4 py-4 text-sm leading-7 text-muted">
+              Quick actions use the live backend: support queues a callback, receipts download immediately, autopay toggles the
+              mandate, and plan upgrades update your coverage.
+            </div>
+          )}
+        </div>
+
         <div className="space-y-6">
           <ZoneMap {...dashboard.zoneMap} />
 
@@ -253,62 +309,6 @@ export function DashboardPage() {
               <InfoTile label="Weekly premium" value={formatCurrency(user.weeklyPremium)} />
             </div>
           </div>
-        </div>
-
-        <div className="panel-card p-6 sm:p-7">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="mono-label">Action center</p>
-              <h2 className="mt-2 text-2xl font-serif text-navy">Do something useful now</h2>
-            </div>
-            <Sparkles className="h-5 w-5 text-gold" />
-          </div>
-          <div className="mt-6 space-y-3">
-            {dashboard.quickActions.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                disabled={busyAction === action.id || (action.id === 'upgrade' && currentPlan === 'Pro')}
-                onClick={() => void handleAction(action.id)}
-                className="group flex w-full items-start justify-between gap-4 rounded-[24px] border border-sky-light bg-white px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-sky hover:shadow-card focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <div className="space-y-1">
-                  <div className="font-semibold text-navy">{actionLabel(action.id)}</div>
-                  <p className="text-sm leading-6 text-muted">{action.description}</p>
-                </div>
-                {busyAction === action.id ? (
-                  <Loader2 className="mt-1 h-4 w-4 animate-spin text-sky" />
-                ) : action.id === 'receipt' ? (
-                  <ReceiptText className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
-                ) : action.id === 'support' ? (
-                  <ShieldAlert className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
-                ) : action.id === 'autopay' ? (
-                  <ShieldCheck className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
-                ) : (
-                  <HandCoins className="mt-1 h-4 w-4 text-sky transition group-hover:translate-x-0.5" />
-                )}
-              </button>
-            ))}
-          </div>
-
-          {statusMessage ? (
-            <div
-              className={`mt-5 rounded-[24px] px-4 py-4 text-sm ${
-                statusTone === 'green'
-                  ? 'bg-[#E6F4EF] text-k-green'
-                  : statusTone === 'gold'
-                    ? 'bg-gold-light text-gold'
-                    : 'bg-[#FDE8E8] text-k-red'
-              }`}
-            >
-              {statusMessage}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-[24px] bg-sky-pale/60 px-4 py-4 text-sm leading-7 text-muted">
-              Quick actions use the live backend: support queues a callback, receipts download immediately, autopay toggles the
-              mandate, and plan upgrades update your coverage.
-            </div>
-          )}
         </div>
       </motion.section>
 

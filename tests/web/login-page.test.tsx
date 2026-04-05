@@ -18,8 +18,32 @@ describe('Login page', () => {
     authMocks.useAuth.mockReset()
   })
 
+  test('shows the sign-in form before the marketing banner on mobile-first layout', () => {
+    authMocks.useAuth.mockReturnValue({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      loginWithIdentifier: vi.fn(),
+      loginAsDemo: vi.fn(),
+      completeOnboarding: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    const signInHeading = screen.getByRole('heading', { name: /welcome back/i })
+    const marketingBanner = screen.getByText(/returning workers/i)
+
+    expect(signInHeading.compareDocumentPosition(marketingBanner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   test('logs in with phone and returns to the requested route', async () => {
-    const loginWithPhone = vi.fn().mockResolvedValue({
+    const loginWithIdentifier = vi.fn().mockResolvedValue({
       token: 'worker-token',
       user: {
         id: 'user-1',
@@ -33,7 +57,7 @@ describe('Login page', () => {
       token: null,
       isAuthenticated: false,
       isLoading: false,
-      loginWithPhone,
+      loginWithIdentifier,
       loginAsDemo: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),
@@ -42,14 +66,8 @@ describe('Login page', () => {
     render(
       <MemoryRouter initialEntries={['/login?redirect=/claims']}>
         <Routes>
-          <Route
-            path="/login"
-            element={<LoginPage />}
-          />
-          <Route
-            path="/claims"
-            element={<div>Claims destination</div>}
-          />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/claims" element={<div>Claims destination</div>} />
         </Routes>
       </MemoryRouter>,
     )
@@ -59,11 +77,55 @@ describe('Login page', () => {
     await user.click(screen.getByRole('button', { name: /continue to my dashboard/i }))
 
     await waitFor(() => {
-      expect(loginWithPhone).toHaveBeenCalledWith('9876543210')
+      expect(loginWithIdentifier).toHaveBeenCalledWith('9876543210')
     })
 
     await waitFor(() => {
       expect(screen.getByText('Claims destination')).toBeInTheDocument()
+    })
+  })
+
+  test('switches to email login and submits the selected identity method', async () => {
+    const loginWithIdentifier = vi.fn().mockResolvedValue({
+      token: 'admin-token',
+      user: {
+        id: 'user-demo',
+        name: 'Rahul Kumar',
+      },
+    })
+    const user = userEvent.setup()
+
+    authMocks.useAuth.mockReturnValue({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      loginWithIdentifier,
+      loginAsDemo: vi.fn(),
+      completeOnboarding: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/login?redirect=/analytics']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/analytics" element={<div>Analytics destination</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /^email$/i }))
+    await user.clear(screen.getByLabelText(/email address/i))
+    await user.type(screen.getByLabelText(/email address/i), 'demo@kavach.local')
+    await user.click(screen.getByRole('button', { name: /continue to my dashboard/i }))
+
+    await waitFor(() => {
+      expect(loginWithIdentifier).toHaveBeenCalledWith('demo@kavach.local')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Analytics destination')).toBeInTheDocument()
     })
   })
 
@@ -73,7 +135,7 @@ describe('Login page', () => {
       token: null,
       isAuthenticated: false,
       isLoading: false,
-      loginWithPhone: vi.fn(),
+      loginWithIdentifier: vi.fn(),
       loginAsDemo: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),

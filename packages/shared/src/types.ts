@@ -401,6 +401,7 @@ export type AppBootstrap = {
 
 export type SignupPayload = {
   name: string
+  email?: string
   phone: string
   platforms: string[]
   city: string
@@ -410,7 +411,9 @@ export type SignupPayload = {
 }
 
 export type LoginPayload = {
-  phone: string
+  identifier?: string
+  phone?: string
+  email?: string
 }
 
 export type OtpRequestPayload = {

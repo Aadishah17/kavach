@@ -44,6 +44,9 @@ describe('Onboarding flow', () => {
     fireEvent.change(screen.getByPlaceholderText('Arjun Kumar'), {
       target: { value: 'Aman Singh' },
     })
+    fireEvent.change(screen.getByPlaceholderText('aman@kavach.app'), {
+      target: { value: 'aman@kavach.app' },
+    })
     fireEvent.change(screen.getByPlaceholderText('+91 98765 43210'), {
       target: { value: '9876543210' },
     })
@@ -64,6 +67,7 @@ describe('Onboarding flow', () => {
     await waitFor(() => {
       expect(completeOnboarding).toHaveBeenCalledWith({
         name: 'Aman Singh',
+        email: 'aman@kavach.app',
         phone: '9876543210',
         platforms: ['Zomato'],
         city: 'Bengaluru',

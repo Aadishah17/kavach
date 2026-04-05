@@ -4,7 +4,7 @@ import {
   getSession,
   getStoredToken,
   loginDemo,
-  loginWithPhone as loginWithPhoneRequest,
+  loginWithIdentifier as loginWithIdentifierRequest,
   logoutSession,
   setStoredToken,
   signup,
@@ -16,7 +16,7 @@ type AuthContextValue = {
   token: string | null
   isAuthenticated: boolean
   isLoading: boolean
-  loginWithPhone: (phone: string) => Promise<void>
+  loginWithIdentifier: (identifier: string) => Promise<void>
   loginAsDemo: () => Promise<void>
   completeOnboarding: (profile: SignupPayload) => Promise<void>
   logout: () => Promise<void>
@@ -59,8 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       isAuthenticated: Boolean(user),
       isLoading,
-      loginWithPhone: async (phone) => {
-        const response = await loginWithPhoneRequest(phone)
+      loginWithIdentifier: async (identifier) => {
+        const response = await loginWithIdentifierRequest(identifier)
         setUser(response.user)
         setToken(response.token)
         setStoredToken(response.token)

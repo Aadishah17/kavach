@@ -179,9 +179,25 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       return
     }
 
-    const user = challenge.purpose === 'signup'
-      ? await upsertSignupWorker(store, verification.challenge.signupPayload)
-      : await store.getUserByPhone(parsed.data.phone)
+    let user: StoredUser | null = null
+
+    try {
+      user = challenge.purpose === 'signup'
+        ? await upsertSignupWorker(store, verification.challenge.signupPayload)
+        : await store.getUserByPhone(parsed.data.phone)
+    } catch (error) {
+      if (error instanceof EmailConflictError) {
+        res.status(409).json({
+          error: {
+            code: 'email_in_use',
+            message: 'That email is already linked to another Kavach account.',
+          },
+        })
+        return
+      }
+
+      throw error
+    }
 
     if (!user) {
       res.status(404).json({
@@ -209,7 +225,23 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       return
     }
 
-    const user = await upsertSignupWorker(store, parsed.data)
+    let user: StoredUser
+
+    try {
+      user = await upsertSignupWorker(store, parsed.data)
+    } catch (error) {
+      if (error instanceof EmailConflictError) {
+        res.status(409).json({
+          error: {
+            code: 'email_in_use',
+            message: 'That email is already linked to another Kavach account.',
+          },
+        })
+        return
+      }
+
+      throw error
+    }
 
     res.status(201).json(await issueSession(store, user))
   }))
@@ -227,13 +259,26 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       return
     }
 
-    const user = await store.getUserByPhone(parsed.data.phone)
+    const identifier = resolveLoginIdentifier(parsed.data)
+    if (!identifier) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_login_payload',
+          message: 'Phone number or email is required',
+        },
+      })
+      return
+    }
+
+    const user = isEmailIdentifier(identifier)
+      ? await store.getUserByEmail(identifier)
+      : await store.getUserByPhone(identifier)
 
     if (!user) {
       res.status(404).json({
         error: {
           code: 'user_not_found',
-          message: 'No Kavach account was found for that phone number.',
+          message: 'No Kavach account was found for that phone number or email.',
         },
       })
       return
@@ -1004,6 +1049,14 @@ async function upsertSignupWorker(store: Store, payload: Parameters<typeof build
   }
 
   const existing = await store.getUserByPhone(payload.phone)
+  const requestedEmail = normalizeEmail(payload.email)
+  if (requestedEmail) {
+    const existingByEmail = await store.getUserByEmail(requestedEmail)
+    if (existingByEmail && existingByEmail.id !== existing?.id) {
+      throw new EmailConflictError()
+    }
+  }
+
   const built = buildSignupUser(payload)
 
   return existing
@@ -1340,6 +1393,28 @@ function capitalizePayoutStatus(status: PayoutRecord['status']) {
 
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '')
+}
+
+function normalizeEmail(email?: string | null) {
+  const normalized = email?.trim().toLowerCase()
+  return normalized ? normalized : null
+}
+
+function resolveLoginIdentifier(input: { identifier?: string; phone?: string; email?: string }) {
+  return input.identifier?.trim()
+    || input.email?.trim().toLowerCase()
+    || input.phone?.trim()
+    || null
+}
+
+function isEmailIdentifier(identifier: string) {
+  return identifier.includes('@')
+}
+
+class EmailConflictError extends Error {
+  constructor() {
+    super('email_in_use')
+  }
 }
 
 function requireAdmin(user: StoredUser, res: express.Response) {

@@ -30,7 +30,7 @@ describe('Landing page', () => {
       token: null,
       isAuthenticated: false,
       isLoading: false,
-      loginWithPhone: vi.fn(),
+      loginWithIdentifier: vi.fn(),
       loginAsDemo: vi.fn(),
       completeOnboarding: vi.fn(),
       logout: vi.fn(),

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, ShieldCheck, Smartphone, Sparkles } from 'lucide-react'
+import { ArrowRight, Mail, ShieldCheck, Smartphone, Sparkles } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -7,6 +7,7 @@ import { pageTransition } from '../lib/motion'
 import { ApiError } from '../utils/api'
 
 const quickPhones = ['9876543210', '+91 98765 43210']
+const quickEmails = ['demo@kavach.local', '919000077777@kavach.local']
 
 function safeRedirect(value: string | null) {
   if (!value) {
@@ -23,8 +24,10 @@ function safeRedirect(value: string | null) {
 export function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { isAuthenticated, isLoading, loginAsDemo, loginWithPhone } = useAuth()
+  const { isAuthenticated, isLoading, loginAsDemo, loginWithIdentifier } = useAuth()
+  const [mode, setMode] = useState<'phone' | 'email'>('phone')
   const [phone, setPhone] = useState('9876543210')
+  const [email, setEmail] = useState('demo@kavach.local')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -62,7 +65,11 @@ export function LoginPage() {
     setIsSubmitting(true)
 
     try {
-      await loginWithPhone(phone.trim())
+      await loginWithIdentifier(
+        mode === 'phone'
+          ? phone.trim()
+          : email.trim().toLowerCase(),
+      )
       navigate(redirectTarget, { replace: true })
     } catch (submitError) {
       setError(
@@ -98,53 +105,12 @@ export function LoginPage() {
       {...pageTransition}
       className="min-h-[calc(100vh-4rem)] bg-kavach px-4 py-8 sm:px-6 lg:px-8"
     >
-      <div className="container-shell grid min-h-[calc(100vh-6rem)] items-center gap-8 py-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <section className="relative overflow-hidden rounded-[36px] bg-navy px-8 py-10 text-white shadow-lg sm:px-10 sm:py-12">
-          <div className="absolute inset-0 hero-grid opacity-60" />
-          <div className="absolute -left-10 top-8 h-40 w-40 rounded-full bg-sky/20 blur-3xl" />
-          <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-gold/10 blur-3xl" />
-
-          <div className="relative">
-            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-sky-light">
-              Returning workers
-            </span>
-            <h1 className="mt-6 max-w-xl text-balance text-[clamp(2.7rem,6vw,4.8rem)] leading-[0.95] text-white">
-              Sign in with the phone number linked to your shield.
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-sky-light/80">
-              Use your registered phone number to resume protection, payouts, and support.
-              Demo and admin access remain available for quick walkthroughs.
-            </p>
-
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              <MetricCard label="Live payout" value="2 min" hint="Instant UPI settlement" />
-              <MetricCard label="Support" value="24/7" hint="Queue a callback or chat" />
-              <MetricCard label="Demo" value="Admin" hint="Shortcut still available" />
-            </div>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link
-                to="/signup"
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 text-sm font-semibold text-white transition hover:bg-white/10 sm:w-auto"
-              >
-                New worker? Start signup
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                to="/help"
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-gold px-5 text-sm font-semibold text-navy transition hover:bg-gold/90 sm:w-auto"
-              >
-                Emergency support
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel-card relative overflow-hidden p-6 shadow-lg sm:p-8">
+      <div className="container-shell grid min-h-[calc(100vh-6rem)] items-start gap-6 py-4 lg:items-center lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="order-1 panel-card relative overflow-hidden p-5 shadow-lg sm:p-8 lg:order-1">
           <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#5BA3BE_0%,#C9A96E_50%,#1E7E5E_100%)]" />
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-full bg-sky-pale text-sky">
-              <Smartphone className="h-5 w-5" />
+              {mode === 'phone' ? <Smartphone className="h-5 w-5" /> : <Mail className="h-5 w-5" />}
             </div>
             <div>
               <p className="mono-label">Sign in</p>
@@ -152,28 +118,66 @@ export function LoginPage() {
             </div>
           </div>
 
+          <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl bg-kavach p-1">
+            <button
+              type="button"
+              onClick={() => setMode('phone')}
+              className={`rounded-[14px] px-4 py-3 text-sm font-semibold transition ${mode === 'phone' ? 'bg-white text-navy shadow-card' : 'text-muted'}`}
+            >
+              Phone
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('email')}
+              className={`rounded-[14px] px-4 py-3 text-sm font-semibold transition ${mode === 'email' ? 'bg-white text-navy shadow-card' : 'text-muted'}`}
+            >
+              Email
+            </button>
+          </div>
+
           <form
-            className="mt-8 space-y-5"
+            className="mt-6 space-y-5"
             onSubmit={(event) => void handleSubmit(event)}
           >
-            <label className="block">
-              <span className="mono-label">Phone number</span>
-              <input
-                className="form-input mt-2"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="+91 98765 43210"
-                inputMode="tel"
-                autoComplete="tel"
-              />
-            </label>
+            {mode === 'phone' ? (
+              <label className="block">
+                <span className="mono-label">Phone number</span>
+                <input
+                  className="form-input mt-2"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder="+91 98765 43210"
+                  inputMode="tel"
+                  autoComplete="tel"
+                />
+              </label>
+            ) : (
+              <label className="block">
+                <span className="mono-label">Email address</span>
+                <input
+                  className="form-input mt-2"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="worker@kavach.local"
+                  inputMode="email"
+                  autoComplete="email"
+                />
+              </label>
+            )}
 
             <div className="flex flex-wrap gap-2">
-              {quickPhones.map((item) => (
+              {(mode === 'phone' ? quickPhones : quickEmails).map((item) => (
                 <button
                   key={item}
                   type="button"
-                  onClick={() => setPhone(item)}
+                  onClick={() => {
+                    if (mode === 'phone') {
+                      setPhone(item)
+                      return
+                    }
+
+                    setEmail(item)
+                  }}
                   className="rounded-full border border-sky-light bg-sky-pale px-3 py-1.5 text-sm font-medium text-navy transition hover:border-sky"
                 >
                   {item}
@@ -187,7 +191,9 @@ export function LoginPage() {
               </div>
             ) : (
               <div className="rounded-2xl border border-sky-light bg-sky-pale/60 px-4 py-3 text-sm text-muted">
-                If your phone number is not found, check that you used the same number during signup.
+                {mode === 'phone'
+                  ? 'If your phone number is not found, use the same format you entered during signup, including +91 if needed.'
+                  : 'Email login is passwordless on this build. Use the email already linked to your Kavach account.'}
               </div>
             )}
 
@@ -228,6 +234,47 @@ export function LoginPage() {
               Once signed in, Kavach restores your coverage dashboard, payout receipt access, autopay controls,
               and emergency support without re-entering profile data.
             </p>
+          </div>
+        </section>
+
+        <section className="order-2 relative overflow-hidden rounded-[32px] bg-navy px-6 py-8 text-white shadow-lg sm:px-10 sm:py-12 lg:order-2">
+          <div className="absolute inset-0 hero-grid opacity-60" />
+          <div className="absolute -left-10 top-8 h-40 w-40 rounded-full bg-sky/20 blur-3xl" />
+          <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-gold/10 blur-3xl" />
+
+          <div className="relative">
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.24em] text-sky-light">
+              Returning workers
+            </span>
+            <h1 className="mt-6 max-w-xl text-balance text-[clamp(2.4rem,6vw,4.8rem)] leading-[0.95] text-white">
+              Sign in with the contact linked to your shield.
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-7 text-sky-light/80">
+              Use your registered phone number or linked email to resume protection, payouts, and support.
+              Demo and admin access remain available for quick walkthroughs.
+            </p>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <MetricCard label="Live payout" value="2 min" hint="Instant UPI settlement" />
+              <MetricCard label="Support" value="24/7" hint="Queue a callback or chat" />
+              <MetricCard label="Demo" value="Admin" hint="Shortcut still available" />
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                to="/signup"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 text-sm font-semibold text-white transition hover:bg-white/10 sm:w-auto"
+              >
+                New worker? Start signup
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/help"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-gold px-5 text-sm font-semibold text-navy transition hover:bg-gold/90 sm:w-auto"
+              >
+                Emergency support
+              </Link>
+            </div>
           </div>
         </section>
       </div>

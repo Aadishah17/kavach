@@ -53,11 +53,26 @@ export class FirestoreStore {
     return doc.data() as StoredUser
   }
 
+  async getUserByEmail(email: string): Promise<StoredUser | null> {
+    const normalized = email.trim().toLowerCase()
+    const snapshot = await this.db
+      .collection('users')
+      .where('emailLowercase', '==', normalized)
+      .limit(1)
+      .get()
+
+    if (snapshot.empty) return null
+    const [doc] = snapshot.docs
+    if (!doc) return null
+    return doc.data() as StoredUser
+  }
+
   async upsertUser(user: StoredUser): Promise<StoredUser> {
     const docRef = this.db.collection('users').doc(user.id)
     const data = {
       ...user,
       phoneNormalized: normalizePhone(user.phone),
+      emailLowercase: user.email?.trim().toLowerCase() ?? null,
     }
     await docRef.set(data, { merge: true })
 
