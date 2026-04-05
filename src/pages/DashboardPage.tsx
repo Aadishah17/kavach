@@ -357,7 +357,28 @@ export function DashboardPage() {
           </div>
           <StatusPill status={payoutState.status}>Latest payout</StatusPill>
         </div>
-        <div className="fine-scrollbar overflow-x-auto">
+        <div className="grid gap-3 p-5 md:hidden">
+          {dashboard.payoutHistory.map((entry) => (
+            <article key={`${entry.date}-${entry.type}`} className="rounded-[24px] bg-kavach px-4 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-semibold text-navy">{entry.disruption}</div>
+                  <p className="mt-1 text-sm text-muted">
+                    {entry.date} · {entry.zone}
+                  </p>
+                </div>
+                <StatusPill status={entry.status} />
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted">{entry.type}</span>
+                <span className={entry.amount > 0 ? 'font-semibold text-k-green' : 'font-semibold text-k-red'}>
+                  {entry.amount > 0 ? formatCurrency(entry.amount) : `-${formatCurrency(Math.abs(entry.amount))}`}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="fine-scrollbar hidden overflow-x-auto md:block">
           <div className="table-row-ledger border-b border-sky-light/80 bg-sky-pale/40 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
             <span>Date</span>
             <span>Type</span>

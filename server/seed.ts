@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { BaseWorkerProfile, PlanName, ProfileSetting, SignupInput, StoredUser } from './types.js'
+import type { BaseWorkerProfile, FeatureFlagRecord, PlanName, ProfileSetting, SignupInput, StoredUser } from './types.js'
 
 export const planCatalog: Record<
   PlanName,
@@ -44,6 +44,30 @@ export const defaultProfileSettings: ProfileSetting[] = [
   { label: 'AutoPay Mandate', value: 'Weekly deduction active', enabled: true },
   { label: 'App Language', value: 'English / Hindi', enabled: true, kind: 'link' },
   { label: 'Biometric Lock', value: 'Face ID / Fingerprint enabled', enabled: true },
+]
+
+export const defaultFeatureFlags: FeatureFlagRecord[] = [
+  {
+    key: 'worker_notifications_v2',
+    label: 'Worker notifications v2',
+    description: 'Shows grouped notification and timeline surfaces across web and app.',
+    enabled: true,
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    key: 'admin_fraud_actions',
+    label: 'Admin fraud actions',
+    description: 'Enables approve, reject, escalate, and resolve controls in admin analytics.',
+    enabled: true,
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    key: 'instant_payout_ops',
+    label: 'Instant payout operations',
+    description: 'Shows payout operations details and simulated settlement state.',
+    enabled: true,
+    updatedAt: new Date().toISOString(),
+  },
 ]
 
 export const staticAppData = {
@@ -235,6 +259,41 @@ export const staticAppData = {
       price: 79,
       coverage: 'Up to ₹6,500/week insured income',
       features: ['Family backup wallet', 'Emergency cash advance', 'Claims concierge'],
+    },
+  ],
+  trustProof: [
+    {
+      title: 'Fast payout proof',
+      detail: 'Recent weather-linked payout settled to UPI in under 4 minutes.',
+      metric: '₹571 in 4 min',
+    },
+    {
+      title: 'Fraud-safe automation',
+      detail: 'GPS, weather correlation, and duplicate cluster checks stop fake delivery claims.',
+      metric: '94.2% fraud catch rate',
+    },
+    {
+      title: 'Active protection',
+      detail: 'Worker zones are monitored continuously with pricing adjustments explained in-app.',
+      metric: '48,271 workers covered',
+    },
+  ],
+  faq: [
+    {
+      question: 'How does zero-touch payout work?',
+      answer: 'Kavach verifies the zone event, validates fraud signals, and sends simulated payout instantly to the worker payout rail.',
+    },
+    {
+      question: 'Why did my weekly premium change?',
+      answer: 'The premium moves within a capped range based on hyper-local risk such as rain, waterlogging history, AQI, and trust discounts.',
+    },
+    {
+      question: 'What if a claim looks suspicious?',
+      answer: 'GPS spoof checks, historical weather matching, and duplicate cluster review move the event into watch or manual review before settlement.',
+    },
+    {
+      question: 'Can I pause AutoPay?',
+      answer: 'Yes. Workers can pause weekly deductions while keeping the current cycle active, then resume when they are ready.',
     },
   ],
   dashboardKpis: [

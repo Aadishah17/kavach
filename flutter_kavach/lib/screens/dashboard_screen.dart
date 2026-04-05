@@ -60,6 +60,13 @@ class DashboardScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
+              if (provider.hasStaleData) ...[
+                _StaleBanner(
+                  message: provider.errorMessage ?? 'Showing the last synced worker dashboard.',
+                  onRetry: provider.loadAppData,
+                ),
+                const SizedBox(height: 16),
+              ],
               _buildHeader(context, data),
               const SizedBox(height: 20),
               _buildHeroCard(context, data, provider),
@@ -592,5 +599,38 @@ class DashboardScreen extends StatelessWidget {
       default:
         return Icons.shield_moon_rounded;
     }
+  }
+}
+
+class _StaleBanner extends StatelessWidget {
+  const _StaleBanner({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: AppTheme.gold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
   }
 }

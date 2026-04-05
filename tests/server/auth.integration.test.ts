@@ -159,6 +159,43 @@ describe('Kavach API auth and session flows', () => {
     assert.equal(Array.isArray(dashboard.json?.quickActions), true)
   })
 
+  test('supports mock OTP signup verification and creates a worker session', async () => {
+    const otpRequest = await apiRequest('/api/auth/otp/request', {
+      method: 'POST',
+      body: {
+        phone: '9898989898',
+        purpose: 'signup',
+        signup: {
+          name: 'Ishita Roy',
+          phone: '9898989898',
+          platforms: ['Zepto'],
+          city: 'Bengaluru',
+          zone: 'HSR Layout',
+          plan: 'Standard',
+          upi: 'ishita@upi',
+        } satisfies SignupPayload,
+      },
+    })
+
+    assert.equal(otpRequest.response.status, 201)
+    assert.equal(otpRequest.json?.challenge?.delivery, 'mock')
+    assert.equal(typeof otpRequest.json?.challenge?.demoCode, 'string')
+
+    const otpVerify = await apiRequest('/api/auth/otp/verify', {
+      method: 'POST',
+      body: {
+        challengeId: otpRequest.json?.challenge?.challengeId,
+        phone: '9898989898',
+        code: otpRequest.json?.challenge?.demoCode,
+      },
+    })
+
+    assert.equal(otpVerify.response.status, 201)
+    assert.equal(otpVerify.json?.user.name, 'Ishita Roy')
+    assert.equal(otpVerify.json?.user.role, 'worker')
+    assert.equal(typeof otpVerify.json?.token, 'string')
+  })
+
   test('upgrades worker policy and persists autopay management state', async () => {
     const signup = await apiRequest('/api/auth/signup', {
       method: 'POST',
@@ -276,6 +313,17 @@ describe('Kavach API auth and session flows', () => {
     assert.equal(emergency.response.status, 201)
     assert.equal(typeof emergency.json?.ticketId, 'string')
     assert.equal(emergency.json?.status, 'queued')
+
+    const claims = await apiRequest('/api/app-data/claims', { token })
+    assert.equal(claims.response.status, 200)
+    assert.equal(Array.isArray(claims.json?.timeline), true)
+    assert.equal(typeof claims.json?.supportTicket?.ticketId, 'string')
+    assert.equal(typeof claims.json?.latestReceipt?.downloadPath, 'string')
+
+    const alerts = await apiRequest('/api/app-data/alerts', { token })
+    assert.equal(alerts.response.status, 200)
+    assert.equal(Array.isArray(alerts.json?.notifications), true)
+    assert.equal(alerts.json?.notifications.length > 0, true)
   })
 
   test('returns richer admin analytics and exports them as csv', async () => {
@@ -288,6 +336,19 @@ describe('Kavach API auth and session flows', () => {
     assert.equal(typeof analytics.json?.predictedClaimsNextWeek, 'number')
     assert.equal(Array.isArray(analytics.json?.zoneForecasts), true)
     assert.equal(Array.isArray(analytics.json?.fraudQueue), true)
+    assert.equal(Array.isArray(analytics.json?.featureFlags), true)
+
+    const firstFraudCase = analytics.json?.fraudQueue?.[0]
+    assert.equal(typeof firstFraudCase?.id, 'string')
+
+    const fraudAction = await apiRequest(`/api/admin/fraud/${firstFraudCase.id}/action`, {
+      method: 'POST',
+      token,
+      body: { action: 'resolve' },
+    })
+
+    assert.equal(fraudAction.response.status, 200)
+    assert.equal(fraudAction.json?.review?.status, 'resolved')
 
     const exportResponse = await fetch(`${baseUrl}/api/analytics/export`, {
       headers: {

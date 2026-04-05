@@ -122,17 +122,17 @@ export function LoginPage() {
               <MetricCard label="Demo" value="Admin" hint="Shortcut still available" />
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
                 to="/signup"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/15 px-5 text-sm font-semibold text-white transition hover:bg-white/10"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 text-sm font-semibold text-white transition hover:bg-white/10 sm:w-auto"
               >
                 New worker? Start signup
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/alerts"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-gold px-5 text-sm font-semibold text-navy transition hover:bg-gold/90"
+                to="/help"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-gold px-5 text-sm font-semibold text-navy transition hover:bg-gold/90 sm:w-auto"
               >
                 Emergency support
               </Link>

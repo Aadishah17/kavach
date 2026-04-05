@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/app_data.dart';
@@ -13,7 +14,7 @@ class ClaimsScreen extends StatelessWidget {
     final provider = context.watch<AppProvider>();
     final data = provider.appData;
 
-    if (provider.dataState == AppDataState.loading) {
+    if (provider.isLoading && data == null) {
       return const Scaffold(
         backgroundColor: AppTheme.background,
         body: Center(child: CircularProgressIndicator(color: AppTheme.navy)),
@@ -39,10 +40,7 @@ class ClaimsScreen extends StatelessWidget {
       );
     }
 
-    final entries = <_TimelineEntry>[
-      ...data.payoutHistory.map((item) => _TimelineEntry(item: item, isPayout: true)),
-      ...data.premiumHistory.map((item) => _TimelineEntry(item: item, isPayout: false)),
-    ];
+    final timelineSections = _buildTimelineSections(data);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -58,29 +56,66 @@ class ClaimsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (provider.hasStaleData) ...[
+                _StaleBanner(
+                  message: provider.errorMessage ?? 'Showing the last synced payout and claims activity.',
+                  onRetry: provider.loadAppData,
+                ),
+                const SizedBox(height: 16),
+              ],
               _PayoutStateCard(payout: data.payoutState),
               const SizedBox(height: 16),
               _FraudCard(assessment: data.fraudAssessment),
               const SizedBox(height: 16),
+              if (provider.latestSupportTicket != null) ...[
+                _SupportTicketCard(ticket: provider.latestSupportTicket!),
+                const SizedBox(height: 16),
+              ],
               if (data.verificationSignals.isNotEmpty) _VerificationCard(signals: data.verificationSignals),
               if (data.verificationSignals.isNotEmpty) const SizedBox(height: 16),
               Text('Timeline', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
-              if (entries.isEmpty)
-                _EmptyState(
+              if (timelineSections.isEmpty)
+                const _EmptyState(
                   title: 'No claims activity yet',
                   body: 'When a trigger hits or a premium posts, it will appear here.',
                   actionLabel: '',
                   onAction: null,
                 )
               else
-                ...entries.map((entry) => _TimelineCard(entry: entry)),
+                ...timelineSections.map((section) => _TimelineSection(section: section)),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _TimelineSectionData {
+  const _TimelineSectionData({
+    required this.title,
+    required this.entries,
+  });
+
+  final String title;
+  final List<_TimelineEntry> entries;
+}
+
+List<_TimelineSectionData> _buildTimelineSections(AppData data) {
+  final payoutEntries = data.payoutHistory.map((item) => _TimelineEntry(item: item, isPayout: true)).toList();
+  final premiumEntries = data.premiumHistory.map((item) => _TimelineEntry(item: item, isPayout: false)).toList();
+  final sections = <_TimelineSectionData>[];
+
+  if (payoutEntries.isNotEmpty) {
+    sections.add(_TimelineSectionData(title: 'Payouts', entries: payoutEntries));
+  }
+
+  if (premiumEntries.isNotEmpty) {
+    sections.add(_TimelineSectionData(title: 'Premiums', entries: premiumEntries));
+  }
+
+  return sections;
 }
 
 class _TimelineEntry {
@@ -91,6 +126,33 @@ class _TimelineEntry {
 
   final PayoutItem item;
   final bool isPayout;
+}
+
+class _TimelineSection extends StatelessWidget {
+  const _TimelineSection({required this.section});
+
+  final _TimelineSectionData section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(section.title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          ...section.entries.map((entry) => _TimelineCard(entry: entry)),
+        ],
+      ),
+    );
+  }
 }
 
 class _PayoutStateCard extends StatelessWidget {
@@ -261,6 +323,13 @@ class _TimelineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = entry.isPayout ? AppTheme.green : AppTheme.navy;
     final sign = entry.isPayout ? '+' : '-';
+    final receiptLines = [
+      'Type: ${entry.isPayout ? 'Payout' : 'Premium'}',
+      'Label: ${entry.item.label}',
+      'Amount: ₹${entry.item.amount}',
+      'Status: ${entry.item.status}',
+      'Date: ${entry.item.date}',
+    ].join('\n');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -271,7 +340,7 @@ class _TimelineCard extends StatelessWidget {
         border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
@@ -280,13 +349,107 @@ class _TimelineCard extends StatelessWidget {
                 Text(entry.item.label, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
                 Text('${entry.item.status} • ${entry.item.date}', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _Pill(label: entry.isPayout ? 'Payout' : 'Premium', tone: color),
+                    _Pill(label: entry.item.type, tone: AppTheme.skyBlue),
+                  ],
+                ),
               ],
             ),
           ),
-          Text(
-            '$sign₹${entry.item.amount}',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$sign₹${entry.item.amount}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: receiptLines));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Receipt copied')),
+                  );
+                },
+                child: const Text('Copy'),
+              ),
+            ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportTicketCard extends StatelessWidget {
+  const _SupportTicketCard({required this.ticket});
+
+  final SupportTicket ticket;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.outlineVariant.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.support_agent_rounded, color: AppTheme.navy),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Support ticket ${ticket.ticketId}', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text(ticket.message, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          _Pill(label: ticket.status, tone: AppTheme.skyBlue),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaleBanner extends StatelessWidget {
+  const _StaleBanner({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: AppTheme.gold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

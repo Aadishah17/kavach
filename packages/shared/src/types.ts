@@ -8,6 +8,15 @@ export type TriggerSource = 'public' | 'mock'
 export type TriggerStatus = 'clear' | 'watch' | 'triggered'
 export type PayoutStatus = 'monitoring' | 'triggered' | 'processing' | 'paid' | 'manual_review' | 'failed'
 export type PaymentProvider = 'upi_mock' | 'razorpay_test' | 'stripe_test'
+export type OtpPurpose = 'login' | 'signup'
+export type OtpDelivery = 'mock' | 'sms' | 'whatsapp'
+export type NotificationChannel = 'in_app' | 'email' | 'whatsapp'
+export type NotificationKind = 'trigger' | 'payout' | 'support' | 'policy' | 'autopay' | 'security'
+export type NotificationStatus = 'sent' | 'queued'
+export type TimelineEventStatus = 'info' | 'watch' | 'success' | 'warning' | 'critical'
+export type SupportTicketStatus = 'queued' | 'in_progress' | 'resolved'
+export type FraudReviewStatus = 'open' | 'approved' | 'rejected' | 'escalated' | 'resolved'
+export type FraudReviewAction = 'approve' | 'reject' | 'escalate' | 'resolve'
 
 export type WorkerProfile = {
   id: string
@@ -92,10 +101,12 @@ export type TriggerCardData = {
 }
 
 export type AlertsFeedItem = {
+  id?: string
   category: string
   title: string
   description: string
   status: string
+  createdAt?: string
 }
 
 export type EmergencyResource = {
@@ -189,6 +200,73 @@ export type PayoutState = {
   updatedAt: string
 }
 
+export type OtpChallenge = {
+  challengeId: string
+  phone: string
+  purpose: OtpPurpose
+  expiresAt: string
+  resendAfterSeconds: number
+  delivery: OtpDelivery
+  maskedDestination: string
+  demoCode?: string
+}
+
+export type NotificationItem = {
+  id: string
+  title: string
+  body: string
+  kind: NotificationKind
+  channel: NotificationChannel
+  status: NotificationStatus
+  createdAt: string
+  readAt: string | null
+  actionLabel?: string
+  actionHref?: string
+}
+
+export type ClaimTimelineEntry = {
+  id: string
+  claimId: string
+  title: string
+  description: string
+  status: TimelineEventStatus
+  createdAt: string
+}
+
+export type SupportTicketSummary = {
+  ticketId: string
+  status: SupportTicketStatus
+  channel: 'callback' | 'chat' | 'phone'
+  callbackEtaMinutes: number
+  hotline: string
+  createdAt: string
+  updatedAt: string
+  message: string
+}
+
+export type ReceiptSummary = {
+  reference: string
+  downloadPath: string
+  shareLabel: string
+}
+
+export type PayoutOpsItem = {
+  reference: string
+  workerName: string
+  zone: string
+  amount: number
+  provider: PaymentProvider
+  status: PayoutStatus
+  updatedAt: string
+}
+
+export type FeatureFlag = {
+  key: string
+  label: string
+  description: string
+  enabled: boolean
+}
+
 export type AutopayState = {
   enabled: boolean
   mandateStatus: 'active' | 'paused'
@@ -242,6 +320,8 @@ export type DashboardData = {
   fraudAssessment: FraudAssessment
   triggerEvaluations: TriggerEvaluation[]
   quickActions: DashboardQuickAction[]
+  notificationsUnread?: number
+  featureFlags?: FeatureFlag[]
 }
 
 export type ClaimsData = {
@@ -251,6 +331,9 @@ export type ClaimsData = {
   premiumHistory: PremiumHistoryItem[]
   payoutState: PayoutState
   fraudAssessment: FraudAssessment
+  timeline?: ClaimTimelineEntry[]
+  supportTicket?: SupportTicketSummary | null
+  latestReceipt?: ReceiptSummary | null
 }
 
 export type PolicyData = {
@@ -265,6 +348,8 @@ export type AlertsData = {
   feed: AlertsFeedItem[]
   emergencyResources: EmergencyResource[]
   supportContacts: SupportContact[]
+  notifications?: NotificationItem[]
+  latestTicket?: SupportTicketSummary | null
 }
 
 export type ProfileData = {
@@ -297,8 +382,11 @@ export type AnalyticsData = {
     riskLabel: FraudStatus
     score: number
     reason: string
+    status?: FraudReviewStatus
   }>
   recentPayouts: PayoutState[]
+  payoutOps?: PayoutOpsItem[]
+  featureFlags?: FeatureFlag[]
 }
 
 export type AppBootstrap = {
@@ -325,9 +413,22 @@ export type LoginPayload = {
   phone: string
 }
 
+export type OtpRequestPayload = {
+  phone: string
+  purpose: OtpPurpose
+  signup?: SignupPayload
+}
+
+export type OtpVerifyPayload = {
+  challengeId: string
+  phone: string
+  code: string
+}
+
 export type AuthResponse = {
   token: string
   user: WorkerProfile
+  challenge?: OtpChallenge
 }
 
 export type LandingPayload = {
@@ -343,6 +444,8 @@ export type LandingPayload = {
     features: string[]
     featured?: boolean
   }>
+  trustProof?: Array<{ title: string; detail: string; metric: string }>
+  faq?: Array<{ question: string; answer: string }>
 }
 
 export type ApiErrorPayload = {

@@ -3,7 +3,19 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import type { ProfileSetting, SessionRecord, StoredUser } from './types.js'
+import type {
+  ClaimTimelineRecord,
+  FeatureFlagRecord,
+  FraudReviewAction,
+  FraudReviewRecord,
+  NotificationRecord,
+  OtpChallengeRecord,
+  PayoutRecord,
+  ProfileSetting,
+  SessionRecord,
+  StoredUser,
+  SupportTicketRecord,
+} from './types.js'
 import { buildDemoUser, defaultProfileSettings } from './seed.js'
 
 type LegacySessionRecord = {
@@ -51,6 +63,94 @@ type SessionRow = {
   last_seen_at: string
   expires_at: string
   revoked_at: string | null
+}
+
+type OtpChallengeRow = {
+  id: string
+  phone: string
+  phone_normalized: string
+  purpose: 'login' | 'signup'
+  code: string
+  signup_payload_json: string | null
+  created_at: string
+  expires_at: string
+  attempts: number
+  max_attempts: number
+  status: 'pending' | 'verified' | 'expired'
+  verified_at: string | null
+}
+
+type NotificationRow = {
+  id: string
+  user_id: string
+  title: string
+  body: string
+  kind: string
+  channel: string
+  status: string
+  created_at: string
+  read_at: string | null
+  action_label: string | null
+  action_href: string | null
+}
+
+type ClaimTimelineRow = {
+  id: string
+  claim_id: string
+  user_id: string
+  title: string
+  description: string
+  status: string
+  created_at: string
+}
+
+type PayoutRecordRow = {
+  reference: string
+  claim_id: string
+  user_id: string
+  amount: number
+  status: string
+  provider: string
+  rail: string
+  eta_minutes: number
+  updated_at: string
+  created_at: string
+  trigger_title: string
+  zone: string
+}
+
+type SupportTicketRow = {
+  ticket_id: string
+  user_id: string
+  status: string
+  channel: 'callback' | 'chat' | 'phone'
+  callback_eta_minutes: number
+  hotline: string
+  message: string
+  created_at: string
+  updated_at: string
+}
+
+type FraudReviewRow = {
+  id: string
+  user_id: string
+  worker_name: string
+  zone: string
+  risk_label: 'clear' | 'watch' | 'review'
+  score: number
+  reason: string
+  status: string
+  created_at: string
+  updated_at: string
+  resolution_note: string | null
+}
+
+type FeatureFlagRow = {
+  key: string
+  label: string
+  description: string
+  enabled: number
+  updated_at: string
 }
 
 const SESSION_TTL_DAYS = 30
@@ -118,9 +218,108 @@ export class SqliteStore {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS otp_challenges (
+        id TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        phone_normalized TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        code TEXT NOT NULL,
+        signup_payload_json TEXT,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        attempts INTEGER NOT NULL,
+        max_attempts INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        verified_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        read_at TEXT,
+        action_label TEXT,
+        action_href TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS claim_timeline (
+        id TEXT PRIMARY KEY,
+        claim_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS payout_records (
+        reference TEXT PRIMARY KEY,
+        claim_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        rail TEXT NOT NULL,
+        eta_minutes INTEGER NOT NULL,
+        updated_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        trigger_title TEXT NOT NULL,
+        zone TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        ticket_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        callback_eta_minutes INTEGER NOT NULL,
+        hotline TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS fraud_reviews (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        worker_name TEXT NOT NULL,
+        zone TEXT NOT NULL,
+        risk_label TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        resolution_note TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS feature_flags (
+        key TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        description TEXT NOT NULL,
+        enabled INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
       CREATE INDEX IF NOT EXISTS idx_profile_settings_user_sort ON profile_settings(user_id, sort_order);
+      CREATE INDEX IF NOT EXISTS idx_otp_phone_status ON otp_challenges(phone_normalized, status);
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_claim_timeline_user_claim ON claim_timeline(user_id, claim_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_payout_records_user_created ON payout_records(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_user_created ON support_tickets(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_fraud_reviews_status ON fraud_reviews(status, updated_at DESC);
     `)
 
     await this.importLegacyJsonIfNeeded()
@@ -337,6 +536,318 @@ export class SqliteStore {
     return this.getProfileSettings(userId)
   }
 
+  async createOtpChallenge(challenge: OtpChallengeRecord) {
+    this.database.prepare(`
+      INSERT INTO otp_challenges (
+        id, phone, phone_normalized, purpose, code, signup_payload_json, created_at,
+        expires_at, attempts, max_attempts, status, verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      challenge.id,
+      challenge.phone,
+      challenge.phoneNormalized,
+      challenge.purpose,
+      challenge.code,
+      challenge.signupPayload ? JSON.stringify(challenge.signupPayload) : null,
+      challenge.createdAt,
+      challenge.expiresAt,
+      challenge.attempts,
+      challenge.maxAttempts,
+      challenge.status,
+      challenge.verifiedAt,
+    )
+
+    return (await this.getOtpChallenge(challenge.id))!
+  }
+
+  async getOtpChallenge(id: string) {
+    const row = this.database.prepare(`
+      SELECT * FROM otp_challenges WHERE id = ?
+    `).get(id) as OtpChallengeRow | undefined
+
+    return row ? this.mapOtpChallengeRow(row) : null
+  }
+
+  async updateOtpChallenge(challenge: OtpChallengeRecord) {
+    this.database.prepare(`
+      UPDATE otp_challenges
+      SET phone = ?, phone_normalized = ?, purpose = ?, code = ?, signup_payload_json = ?, created_at = ?,
+        expires_at = ?, attempts = ?, max_attempts = ?, status = ?, verified_at = ?
+      WHERE id = ?
+    `).run(
+      challenge.phone,
+      challenge.phoneNormalized,
+      challenge.purpose,
+      challenge.code,
+      challenge.signupPayload ? JSON.stringify(challenge.signupPayload) : null,
+      challenge.createdAt,
+      challenge.expiresAt,
+      challenge.attempts,
+      challenge.maxAttempts,
+      challenge.status,
+      challenge.verifiedAt,
+      challenge.id,
+    )
+
+    return (await this.getOtpChallenge(challenge.id))!
+  }
+
+  async listNotifications(userId: string) {
+    const rows = this.database.prepare(`
+      SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC
+    `).all(userId) as NotificationRow[]
+
+    return rows.map((row) => this.mapNotificationRow(row))
+  }
+
+  async createNotification(notification: NotificationRecord) {
+    this.database.prepare(`
+      INSERT INTO notifications (
+        id, user_id, title, body, kind, channel, status, created_at, read_at, action_label, action_href
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      notification.id,
+      notification.userId,
+      notification.title,
+      notification.body,
+      notification.kind,
+      notification.channel,
+      notification.status,
+      notification.createdAt,
+      notification.readAt,
+      notification.actionLabel,
+      notification.actionHref,
+    )
+
+    return notification
+  }
+
+  async listClaimTimeline(userId: string, claimId?: string) {
+    const rows = claimId
+      ? this.database.prepare(`
+        SELECT * FROM claim_timeline
+        WHERE user_id = ? AND claim_id = ?
+        ORDER BY created_at ASC
+      `).all(userId, claimId) as ClaimTimelineRow[]
+      : this.database.prepare(`
+        SELECT * FROM claim_timeline
+        WHERE user_id = ?
+        ORDER BY created_at ASC
+      `).all(userId) as ClaimTimelineRow[]
+
+    return rows.map((row) => this.mapClaimTimelineRow(row))
+  }
+
+  async appendClaimTimeline(event: ClaimTimelineRecord) {
+    this.database.prepare(`
+      INSERT INTO claim_timeline (id, claim_id, user_id, title, description, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      event.id,
+      event.claimId,
+      event.userId,
+      event.title,
+      event.description,
+      event.status,
+      event.createdAt,
+    )
+
+    return event
+  }
+
+  async upsertPayoutRecord(record: PayoutRecord) {
+    this.database.prepare(`
+      INSERT INTO payout_records (
+        reference, claim_id, user_id, amount, status, provider, rail, eta_minutes,
+        updated_at, created_at, trigger_title, zone
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(reference) DO UPDATE SET
+        claim_id = excluded.claim_id,
+        amount = excluded.amount,
+        status = excluded.status,
+        provider = excluded.provider,
+        rail = excluded.rail,
+        eta_minutes = excluded.eta_minutes,
+        updated_at = excluded.updated_at,
+        trigger_title = excluded.trigger_title,
+        zone = excluded.zone
+    `).run(
+      record.reference,
+      record.claimId,
+      record.userId,
+      record.amount,
+      record.status,
+      record.provider,
+      record.rail,
+      record.etaMinutes,
+      record.updatedAt,
+      record.createdAt,
+      record.triggerTitle,
+      record.zone,
+    )
+
+    return (await this.getPayoutRecord(record.reference))!
+  }
+
+  async getPayoutRecord(reference: string) {
+    const row = this.database.prepare(`
+      SELECT * FROM payout_records WHERE reference = ?
+    `).get(reference) as PayoutRecordRow | undefined
+
+    return row ? this.mapPayoutRecordRow(row) : null
+  }
+
+  async listPayoutRecords(userId?: string) {
+    const rows = userId
+      ? this.database.prepare(`
+        SELECT * FROM payout_records WHERE user_id = ? ORDER BY created_at DESC
+      `).all(userId) as PayoutRecordRow[]
+      : this.database.prepare(`
+        SELECT * FROM payout_records ORDER BY created_at DESC
+      `).all() as PayoutRecordRow[]
+
+    return rows.map((row) => this.mapPayoutRecordRow(row))
+  }
+
+  async upsertSupportTicket(ticket: SupportTicketRecord) {
+    this.database.prepare(`
+      INSERT INTO support_tickets (
+        ticket_id, user_id, status, channel, callback_eta_minutes, hotline, message, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(ticket_id) DO UPDATE SET
+        status = excluded.status,
+        channel = excluded.channel,
+        callback_eta_minutes = excluded.callback_eta_minutes,
+        hotline = excluded.hotline,
+        message = excluded.message,
+        updated_at = excluded.updated_at
+    `).run(
+      ticket.ticketId,
+      ticket.userId,
+      ticket.status,
+      ticket.channel,
+      ticket.callbackEtaMinutes,
+      ticket.hotline,
+      ticket.message,
+      ticket.createdAt,
+      ticket.updatedAt,
+    )
+
+    return (await this.getLatestSupportTicket(ticket.userId))!
+  }
+
+  async listSupportTickets(userId: string) {
+    const rows = this.database.prepare(`
+      SELECT * FROM support_tickets WHERE user_id = ? ORDER BY created_at DESC
+    `).all(userId) as SupportTicketRow[]
+
+    return rows.map((row) => this.mapSupportTicketRow(row))
+  }
+
+  async getLatestSupportTicket(userId: string) {
+    const row = this.database.prepare(`
+      SELECT * FROM support_tickets WHERE user_id = ? ORDER BY created_at DESC LIMIT 1
+    `).get(userId) as SupportTicketRow | undefined
+
+    return row ? this.mapSupportTicketRow(row) : null
+  }
+
+  async upsertFraudReview(review: FraudReviewRecord) {
+    this.database.prepare(`
+      INSERT INTO fraud_reviews (
+        id, user_id, worker_name, zone, risk_label, score, reason, status, created_at, updated_at, resolution_note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        risk_label = excluded.risk_label,
+        score = excluded.score,
+        reason = excluded.reason,
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        resolution_note = excluded.resolution_note
+    `).run(
+      review.id,
+      review.userId,
+      review.workerName,
+      review.zone,
+      review.riskLabel,
+      review.score,
+      review.reason,
+      review.status,
+      review.createdAt,
+      review.updatedAt,
+      review.resolutionNote,
+    )
+
+    return (await this.getFraudReview(review.id))!
+  }
+
+  async getFraudReview(id: string) {
+    const row = this.database.prepare(`
+      SELECT * FROM fraud_reviews WHERE id = ?
+    `).get(id) as FraudReviewRow | undefined
+
+    return row ? this.mapFraudReviewRow(row) : null
+  }
+
+  async listFraudReviews() {
+    const rows = this.database.prepare(`
+      SELECT * FROM fraud_reviews ORDER BY updated_at DESC
+    `).all() as FraudReviewRow[]
+
+    return rows.map((row) => this.mapFraudReviewRow(row))
+  }
+
+  async applyFraudReviewAction(id: string, action: FraudReviewAction) {
+    const current = await this.getFraudReview(id)
+    if (!current) {
+      return null
+    }
+
+    const status = action === 'approve'
+      ? 'approved'
+      : action === 'reject'
+        ? 'rejected'
+        : action === 'escalate'
+          ? 'escalated'
+          : 'resolved'
+
+    return this.upsertFraudReview({
+      ...current,
+      status,
+      updatedAt: new Date().toISOString(),
+      resolutionNote: `Updated via ${action} action`,
+    })
+  }
+
+  async getFeatureFlags() {
+    const rows = this.database.prepare(`
+      SELECT * FROM feature_flags ORDER BY key ASC
+    `).all() as FeatureFlagRow[]
+
+    return rows.map((row) => this.mapFeatureFlagRow(row))
+  }
+
+  async upsertFeatureFlag(flag: FeatureFlagRecord) {
+    this.database.prepare(`
+      INSERT INTO feature_flags (key, label, description, enabled, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        label = excluded.label,
+        description = excluded.description,
+        enabled = excluded.enabled,
+        updated_at = excluded.updated_at
+    `).run(
+      flag.key,
+      flag.label,
+      flag.description,
+      flag.enabled ? 1 : 0,
+      flag.updatedAt,
+    )
+
+    const flags = await this.getFeatureFlags()
+    return flags.find((item) => item.key === flag.key) ?? null
+  }
+
   private async importLegacyJsonIfNeeded() {
     if (!this.legacyJsonPath || !existsSync(this.legacyJsonPath)) {
       return
@@ -427,6 +938,108 @@ export class SqliteStore {
       lastSeenAt: row.last_seen_at,
       expiresAt: row.expires_at,
       revokedAt: row.revoked_at,
+    }
+  }
+
+  private mapOtpChallengeRow(row: OtpChallengeRow): OtpChallengeRecord {
+    return {
+      id: row.id,
+      phone: row.phone,
+      phoneNormalized: row.phone_normalized,
+      purpose: row.purpose,
+      code: row.code,
+      signupPayload: row.signup_payload_json ? JSON.parse(row.signup_payload_json) : null,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      attempts: row.attempts,
+      maxAttempts: row.max_attempts,
+      status: row.status,
+      verifiedAt: row.verified_at,
+    }
+  }
+
+  private mapNotificationRow(row: NotificationRow): NotificationRecord {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      body: row.body,
+      kind: row.kind as NotificationRecord['kind'],
+      channel: row.channel as NotificationRecord['channel'],
+      status: row.status as NotificationRecord['status'],
+      createdAt: row.created_at,
+      readAt: row.read_at,
+      actionLabel: row.action_label,
+      actionHref: row.action_href,
+    }
+  }
+
+  private mapClaimTimelineRow(row: ClaimTimelineRow): ClaimTimelineRecord {
+    return {
+      id: row.id,
+      claimId: row.claim_id,
+      userId: row.user_id,
+      title: row.title,
+      description: row.description,
+      status: row.status as ClaimTimelineRecord['status'],
+      createdAt: row.created_at,
+    }
+  }
+
+  private mapPayoutRecordRow(row: PayoutRecordRow): PayoutRecord {
+    return {
+      reference: row.reference,
+      claimId: row.claim_id,
+      userId: row.user_id,
+      amount: row.amount,
+      status: row.status as PayoutRecord['status'],
+      provider: row.provider as PayoutRecord['provider'],
+      rail: row.rail,
+      etaMinutes: row.eta_minutes,
+      updatedAt: row.updated_at,
+      createdAt: row.created_at,
+      triggerTitle: row.trigger_title,
+      zone: row.zone,
+    }
+  }
+
+  private mapSupportTicketRow(row: SupportTicketRow): SupportTicketRecord {
+    return {
+      ticketId: row.ticket_id,
+      userId: row.user_id,
+      status: row.status as SupportTicketRecord['status'],
+      channel: row.channel,
+      callbackEtaMinutes: row.callback_eta_minutes,
+      hotline: row.hotline,
+      message: row.message,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }
+  }
+
+  private mapFraudReviewRow(row: FraudReviewRow): FraudReviewRecord {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      workerName: row.worker_name,
+      zone: row.zone,
+      riskLabel: row.risk_label,
+      score: row.score,
+      reason: row.reason,
+      status: row.status as FraudReviewRecord['status'],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      resolutionNote: row.resolution_note,
+    }
+  }
+
+  private mapFeatureFlagRow(row: FeatureFlagRow): FeatureFlagRecord {
+    return {
+      key: row.key,
+      label: row.label,
+      description: row.description,
+      enabled: Boolean(row.enabled),
+      updatedAt: row.updated_at,
     }
   }
 

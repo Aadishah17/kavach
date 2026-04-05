@@ -96,7 +96,11 @@ describe('Live action wiring', () => {
       user: { role: 'admin' },
     })
 
-    render(<AnalyticsPage />)
+    render(
+      <MemoryRouter>
+        <AnalyticsPage />
+      </MemoryRouter>,
+    )
 
     await user.click(screen.getByRole('button', { name: /export csv/i }))
 

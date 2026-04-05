@@ -21,7 +21,7 @@ export function AppLayout() {
     <div className="min-h-screen bg-kavach">
       <Navbar isApp />
       <Sidebar />
-      <main className="min-h-screen px-4 pb-28 pt-20 lg:ml-60 lg:px-8">
+      <main className="min-h-screen px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-20 lg:ml-60 lg:px-8">
         {isLoading ? (
           <div className="grid min-h-[60vh] place-items-center px-6 text-center">
             <div>
@@ -55,7 +55,7 @@ export function AppLayout() {
           <Outlet />
         )}
       </main>
-      <nav className="fixed inset-x-4 bottom-4 z-40 rounded-full border border-sky-light bg-white/95 p-2 shadow-lg backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 rounded-full border border-sky-light bg-white/95 p-2 shadow-lg backdrop-blur lg:hidden">
         <div className="grid grid-cols-4 gap-1">
           {bottomNavItems.map(({ label, to, icon: Icon }) => (
             <NavLink

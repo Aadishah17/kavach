@@ -18,6 +18,9 @@ const OnboardingPage = lazy(() =>
 const LoginPage = lazy(() =>
   import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })),
 )
+const HelpPage = lazy(() =>
+  import('./pages/HelpPage').then((module) => ({ default: module.HelpPage })),
+)
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
 )
@@ -122,6 +125,7 @@ function App() {
         <Routes>
           <Route element={<LandingLayout />}>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/help" element={<HelpPage />} />
             <Route path="/login" element={<LoginPage />} />
           </Route>
           <Route path="/signup" element={<OnboardingPage />} />

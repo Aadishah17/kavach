@@ -225,6 +225,47 @@ export const pricingTiers = [
   },
 ]
 
+export const trustProof = [
+  {
+    title: 'Rain payout in Koramangala',
+    detail: 'A verified heavy-rain trigger settled to UPI without a manual claim form.',
+    metric: '₹571 in 4 min',
+  },
+  {
+    title: 'Coverage backed by live signals',
+    detail: 'Weather, mobility, and trust checks move together before money leaves the rail.',
+    metric: '92 trust score',
+  },
+  {
+    title: 'Simple weekly pricing',
+    detail: 'The public plan stays easy to scan on mobile and stays anchored to weekly earning cycles.',
+    metric: '₹49/week',
+  },
+]
+
+export const faq = [
+  {
+    question: 'What triggers a payout?',
+    answer:
+      'Verified weather, pollution, civic, and movement signals cross zone-level thresholds before a payout is released.',
+  },
+  {
+    question: 'Do I need to file a manual claim?',
+    answer:
+      'No. Kavach is built for parametric events, so the system checks the trigger and settles the payout automatically when conditions are met.',
+  },
+  {
+    question: 'Where should I go for help?',
+    answer:
+      'Use the public help page for education, support channels, and onboarding guidance. Logged-in workers can still open alerts and live support inside the app.',
+  },
+  {
+    question: 'How fast do payouts arrive?',
+    answer:
+      'Most verified payouts target a few minutes once the trigger and fraud checks pass, depending on the payout rail and backend status.',
+  },
+]
+
 export const dashboardKpis = [
   {
     label: 'Payout this week',

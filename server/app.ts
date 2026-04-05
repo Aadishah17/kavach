@@ -4,14 +4,17 @@ import path from 'node:path'
 import express from 'express'
 import {
   autopayManagementSchema,
+  fraudReviewActionSchema,
   loginSchema,
+  otpRequestSchema,
+  otpVerifySchema,
   payoutSimulationSchema,
   policyUpgradeSchema,
   profileSettingsPayloadSchema,
   signupSchema,
   supportRequestSchema,
 } from '../packages/shared/src/contracts.js'
-import { buildSignupUser, planCatalog, staticAppData } from './seed.js'
+import { buildSignupUser, defaultFeatureFlags, planCatalog, staticAppData } from './seed.js'
 import { SqliteStore } from './store.js'
 import { FirestoreStore } from './firestore-store.js'
 import {
@@ -23,7 +26,17 @@ import {
   buildRiskOutlook,
   simulateInstantPayout,
 } from './intelligence.js'
-import type { PlanName, ProfileSetting, StoredUser } from './types.js'
+import { buildNotificationBatch } from './providers/notifications.js'
+import { requestOtpChallenge, verifyOtpChallenge } from './providers/otp.js'
+import type {
+  ClaimTimelineRecord,
+  FraudReviewRecord,
+  PayoutRecord,
+  PlanName,
+  ProfileSetting,
+  StoredUser,
+  SupportTicketRecord,
+} from './types.js'
 
 type Store = SqliteStore | FirestoreStore
 
@@ -63,7 +76,6 @@ export function createKavachServer(options: KavachServerOptions = {}) {
   const store: Store = useFirestore
     ? new FirestoreStore()
     : new SqliteStore(dbPath, { legacyJsonPath })
-  const simulatedPayouts = new Map<string, { userId: string; payout: ReturnType<typeof buildPayoutState> }>()
   const app = express()
 
   app.use(express.json({ limit: '1mb' }))
@@ -95,6 +107,95 @@ export function createKavachServer(options: KavachServerOptions = {}) {
     res.status(201).json(await issueSession(store, user))
   }))
 
+  app.post('/api/auth/otp/request', asyncRoute(async (req, res) => {
+    const parsed = otpRequestSchema.safeParse(req.body)
+
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_otp_request',
+          message: parsed.error.issues[0]?.message ?? 'Invalid OTP request',
+        },
+      })
+      return
+    }
+
+    const requested = requestOtpChallenge({
+      phone: parsed.data.phone,
+      purpose: parsed.data.purpose,
+      signupPayload: parsed.data.signup,
+    })
+
+    await store.createOtpChallenge(requested.challenge)
+
+    res.status(201).json({
+      challenge: {
+        challengeId: requested.challenge.id,
+        phone: requested.challenge.phone,
+        purpose: requested.challenge.purpose,
+        expiresAt: requested.challenge.expiresAt,
+        resendAfterSeconds: requested.resendAfterSeconds,
+        delivery: requested.delivery,
+        maskedDestination: requested.maskedDestination,
+        demoCode: requested.demoCode,
+      },
+    })
+  }))
+
+  app.post('/api/auth/otp/verify', asyncRoute(async (req, res) => {
+    const parsed = otpVerifySchema.safeParse(req.body)
+
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_otp_verify',
+          message: parsed.error.issues[0]?.message ?? 'Invalid OTP verify request',
+        },
+      })
+      return
+    }
+
+    const challenge = await store.getOtpChallenge(parsed.data.challengeId)
+    if (!challenge || challenge.phoneNormalized !== normalizePhone(parsed.data.phone)) {
+      res.status(404).json({
+        error: {
+          code: 'otp_not_found',
+          message: 'No OTP challenge exists for that phone number.',
+        },
+      })
+      return
+    }
+
+    const verification = verifyOtpChallenge(challenge, parsed.data.code)
+    await store.updateOtpChallenge(verification.challenge)
+
+    if (!verification.ok) {
+      res.status(400).json({
+        error: {
+          code: verification.errorCode,
+          message: verification.errorMessage,
+        },
+      })
+      return
+    }
+
+    const user = challenge.purpose === 'signup'
+      ? await upsertSignupWorker(store, verification.challenge.signupPayload)
+      : await store.getUserByPhone(parsed.data.phone)
+
+    if (!user) {
+      res.status(404).json({
+        error: {
+          code: 'user_not_found',
+          message: 'No Kavach account was found for that phone number.',
+        },
+      })
+      return
+    }
+
+    res.status(201).json(await issueSession(store, user))
+  }))
+
   app.post('/api/auth/signup', asyncRoute(async (req, res) => {
     const parsed = signupSchema.safeParse(req.body)
 
@@ -108,19 +209,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       return
     }
 
-    const existing = await store.getUserByPhone(parsed.data.phone)
-    const built = buildSignupUser(parsed.data)
-    const user = existing
-      ? await store.upsertUser({
-          ...existing,
-          ...built,
-          id: existing.id,
-          email: existing.email ?? built.email,
-          createdAt: existing.createdAt,
-          updatedAt: new Date().toISOString(),
-          lastLoginAt: existing.lastLoginAt,
-        })
-      : await store.upsertUser(built)
+    const user = await upsertSignupWorker(store, parsed.data)
 
     res.status(201).json(await issueSession(store, user))
   }))
@@ -199,7 +288,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
 
     res.json({
       user: publicUser(auth.user),
-      ...buildDashboardData(auth.user),
+      ...(await buildDashboardRouteData(store, auth.user)),
     })
   }))
 
@@ -211,12 +300,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
 
     res.json({
       user: publicUser(auth.user),
-      activeAlert: staticAppData.activeAlert,
-      payoutHistory: staticAppData.payoutHistory,
-      premiumHistory: staticAppData.premiumHistory,
-      verificationSignals: staticAppData.verificationSignals,
-      payoutState: buildPayoutState(auth.user),
-      fraudAssessment: buildFraudAssessment(auth.user),
+      ...(await buildClaimsRouteData(store, auth.user)),
     })
   }))
 
@@ -232,13 +316,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
 
     res.json({
       user: publicUser(auth.user),
-      analyticsKpis: staticAppData.analyticsKpis,
-      weeklyChartData: staticAppData.weeklyChartData,
-      claimsBreakdown: staticAppData.claimsBreakdown,
-      fraudSignals: staticAppData.fraudSignals,
-      financialHealth: staticAppData.financialHealth,
-      unitEconomics: staticAppData.unitEconomics,
-      ...buildAnalyticsIntelligence(auth.user),
+      ...(await buildAnalyticsRouteData(store, auth.user)),
     })
   }))
 
@@ -262,9 +340,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
 
     res.json({
       user: publicUser(auth.user),
-      alertsFeed: staticAppData.alertsFeed,
-      emergencyResources: staticAppData.emergencyResources,
-      supportContacts: staticAppData.supportContacts,
+      ...(await buildAlertsRouteData(store, auth.user)),
     })
   }))
 
@@ -327,10 +403,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
     }
 
     const simulation = simulateInstantPayout(auth.user, parsed.data.provider)
-    simulatedPayouts.set(simulation.payout.reference, {
-      userId: auth.user.id,
-      payout: simulation.payout,
-    })
+    await persistSimulatedPayout(store, auth.user, simulation.payout)
     res.status(201).json(simulation)
   }))
 
@@ -341,7 +414,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
     }
 
     const reference = Array.isArray(req.params.reference) ? req.params.reference[0] : req.params.reference
-    const payoutRecord = reference ? simulatedPayouts.get(reference) : undefined
+    const payoutRecord = reference ? await store.getPayoutRecord(reference) : null
     if (!payoutRecord || payoutRecord.userId !== auth.user.id) {
       res.status(404).json({
         error: {
@@ -351,7 +424,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       })
       return
     }
-    const payout = payoutRecord.payout
+    const payout = payoutRecord
 
     const receipt = [
       'Kavach Instant Payout Receipt',
@@ -388,13 +461,15 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       return
     }
 
+    const ticket = await persistSupportRequest(store, auth.user, parsed.data.channel)
+
     res.status(201).json({
-      ticketId: `support-${auth.user.id}-${Date.now()}`,
-      status: 'queued',
-      channel: parsed.data.channel,
-      callbackEtaMinutes: 2,
-      hotline: '1800-313-KAVACH',
-      message: 'Guardian support has been queued and will contact the worker shortly.',
+      ticketId: ticket.ticketId,
+      status: ticket.status,
+      channel: ticket.channel,
+      callbackEtaMinutes: ticket.callbackEtaMinutes,
+      hotline: ticket.hotline,
+      message: ticket.message,
     })
   }))
 
@@ -422,6 +497,15 @@ export function createKavachServer(options: KavachServerOptions = {}) {
     const updatedUser = await updateUserProfile(store, auth.user, applyPlanUpgrade(auth.user, parsed.data.plan))
     const settings = await store.getProfileSettings(updatedUser.id)
     const policy = buildPolicySnapshot(updatedUser, settings)
+
+    await emitNotifications(store, {
+      userId: updatedUser.id,
+      kind: 'policy',
+      title: `Plan upgraded to Kavach ${parsed.data.plan}`,
+      body: `Weekly premium is now ₹${updatedUser.weeklyPremium} with updated earnings protection.`,
+      actionLabel: 'Review coverage',
+      actionHref: '/policy',
+    })
 
     res.json({
       message: `Plan upgraded to Kavach ${parsed.data.plan}.`,
@@ -462,6 +546,17 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       nextDeduction: parsed.data.enabled ? defaultNextDeduction() : 'AutoPay paused until you resume weekly deductions',
     })
 
+    await emitNotifications(store, {
+      userId: updatedUser.id,
+      kind: 'autopay',
+      title: parsed.data.enabled ? 'AutoPay resumed' : 'AutoPay paused',
+      body: parsed.data.enabled
+        ? `Weekly deductions will continue on ${updatedUser.nextDeduction}.`
+        : 'Future weekly deductions are paused until you resume AutoPay.',
+      actionLabel: 'Manage policy',
+      actionHref: '/policy',
+    })
+
     res.json({
       message: parsed.data.enabled
         ? 'Weekly AutoPay mandate resumed.'
@@ -471,6 +566,46 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       profile: {
         settings,
       },
+    })
+  }))
+
+  app.post('/api/admin/fraud/:id/action', asyncRoute(async (req, res) => {
+    const auth = await requireAuth(store, req, res)
+    if (!auth) {
+      return
+    }
+
+    if (!requireAdmin(auth.user, res)) {
+      return
+    }
+
+    const parsed = fraudReviewActionSchema.safeParse(req.body ?? {})
+    if (!parsed.success) {
+      res.status(400).json({
+        error: {
+          code: 'invalid_fraud_action',
+          message: parsed.error.issues[0]?.message ?? 'Invalid fraud action request',
+        },
+      })
+      return
+    }
+
+    const reviewId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+    const review = reviewId ? await store.applyFraudReviewAction(reviewId, parsed.data.action) : null
+
+    if (!review) {
+      res.status(404).json({
+        error: {
+          code: 'fraud_review_not_found',
+          message: 'No fraud review exists for that id.',
+        },
+      })
+      return
+    }
+
+    res.json({
+      review,
+      fraudQueue: await store.listFraudReviews(),
     })
   }))
 
@@ -497,6 +632,8 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       howItWorksSteps: staticAppData.howItWorksSteps,
       triggerCards: staticAppData.triggerCards,
       pricingTiers: staticAppData.pricingTiers,
+      trustProof: staticAppData.trustProof,
+      faq: staticAppData.faq,
     })
   }))
 
@@ -625,43 +762,170 @@ function publicUser(user: StoredUser) {
 
 async function buildAppData(store: Store, user: StoredUser) {
   const settings = await store.getProfileSettings(user.id)
-  const dashboard = buildDashboardData(user)
-  const fraudAssessment = buildFraudAssessment(user)
-  const payoutState = buildPayoutState(user)
+  const dashboard = await buildDashboardRouteData(store, user)
+  const claims = await buildClaimsRouteData(store, user)
+  const alerts = await buildAlertsRouteData(store, user)
+  const analytics = user.role === 'admin'
+    ? await buildAnalyticsRouteData(store, user)
+    : undefined
 
   return {
     user: publicUser(user),
     dashboard,
-    claims: {
-      activeAlert: staticAppData.activeAlert,
-      verificationSignals: staticAppData.verificationSignals,
-      payoutHistory: staticAppData.payoutHistory,
-      premiumHistory: buildPremiumHistory(user),
-      payoutState,
-      fraudAssessment,
-    },
+    claims,
     policy: buildPolicySnapshot(user, settings),
     alerts: {
-      feed: staticAppData.alertsFeed,
-      emergencyResources: staticAppData.emergencyResources,
-      supportContacts: staticAppData.supportContacts,
+      feed: alerts.alertsFeed,
+      emergencyResources: alerts.emergencyResources,
+      supportContacts: alerts.supportContacts,
+      notifications: alerts.notifications,
+      latestTicket: alerts.latestTicket,
     },
     profile: {
       documents: staticAppData.profileDocuments,
       settings,
       monthlyProtectedAmount: staticAppData.monthlyProtectedAmount,
     },
-    analytics: user.role === 'admin'
+    analytics: analytics
       ? {
-          kpis: staticAppData.analyticsKpis,
-          weeklyChartData: staticAppData.weeklyChartData,
-          claimsBreakdown: staticAppData.claimsBreakdown,
-          fraudSignals: staticAppData.fraudSignals,
-          financialHealth: staticAppData.financialHealth,
-          unitEconomics: staticAppData.unitEconomics,
-          ...buildAnalyticsIntelligence(user),
+          kpis: analytics.analyticsKpis,
+          weeklyChartData: analytics.weeklyChartData,
+          claimsBreakdown: analytics.claimsBreakdown,
+          fraudSignals: analytics.fraudSignals,
+          financialHealth: analytics.financialHealth,
+          unitEconomics: analytics.unitEconomics,
+          lossRatio: analytics.lossRatio,
+          predictedClaimsNextWeek: analytics.predictedClaimsNextWeek,
+          forecastSummary: analytics.forecastSummary,
+          zoneForecasts: analytics.zoneForecasts,
+          fraudQueue: analytics.fraudQueue,
+          recentPayouts: analytics.recentPayouts,
+          payoutOps: analytics.payoutOps,
+          featureFlags: analytics.featureFlags,
         }
       : undefined,
+  }
+}
+
+async function buildDashboardRouteData(store: Store, user: StoredUser) {
+  const base = buildDashboardData(user)
+  const featureFlags = await loadFeatureFlags(store)
+  const notifications = await store.listNotifications(user.id)
+  const payoutRecords = await store.listPayoutRecords(user.id)
+
+  return {
+    ...base,
+    payoutHistory: payoutRowsFromRecords(payoutRecords, user),
+    payoutState: payoutRecords[0] ? toPayoutState(payoutRecords[0]) : base.payoutState,
+    notificationsUnread: notifications.filter((item) => item.readAt == null).length,
+    featureFlags: featureFlags.map(toFeatureFlagPayload),
+  }
+}
+
+async function buildClaimsRouteData(store: Store, user: StoredUser) {
+  const payoutRecords = await store.listPayoutRecords(user.id)
+  const latestPayout = payoutRecords[0] ?? null
+  const timeline = latestPayout ? await store.listClaimTimeline(user.id, latestPayout.claimId) : []
+  const supportTicket = await store.getLatestSupportTicket(user.id)
+
+  return {
+    activeAlert: staticAppData.activeAlert,
+    verificationSignals: staticAppData.verificationSignals,
+    payoutHistory: payoutRowsFromRecords(payoutRecords, user),
+    premiumHistory: buildPremiumHistory(user),
+    payoutState: latestPayout ? toPayoutState(latestPayout) : buildPayoutState(user),
+    fraudAssessment: buildFraudAssessment(user),
+    timeline: timeline.map((entry) => ({
+      id: entry.id,
+      claimId: entry.claimId,
+      title: entry.title,
+      description: entry.description,
+      status: entry.status,
+      createdAt: entry.createdAt,
+    })),
+    supportTicket: supportTicket ? toSupportTicketSummary(supportTicket) : null,
+    latestReceipt: latestPayout
+      ? {
+          reference: latestPayout.reference,
+          downloadPath: `/api/payouts/${latestPayout.reference}/receipt`,
+          shareLabel: 'Share receipt',
+        }
+      : null,
+  }
+}
+
+async function buildAlertsRouteData(store: Store, user: StoredUser) {
+  const notifications = await store.listNotifications(user.id)
+  const supportTicket = await store.getLatestSupportTicket(user.id)
+
+  return {
+    alertsFeed: [
+      ...notifications.slice(0, 3).map((item) => ({
+        id: item.id,
+        category: item.kind,
+        title: item.title,
+        description: item.body,
+        status: item.readAt ? 'Read' : 'New',
+        createdAt: item.createdAt,
+      })),
+      ...staticAppData.alertsFeed,
+    ],
+    emergencyResources: staticAppData.emergencyResources,
+    supportContacts: staticAppData.supportContacts,
+    notifications: notifications.map((item) => ({
+      id: item.id,
+      title: item.title,
+      body: item.body,
+      kind: item.kind,
+      channel: item.channel,
+      status: item.status,
+      createdAt: item.createdAt,
+      readAt: item.readAt,
+      actionLabel: item.actionLabel ?? undefined,
+      actionHref: item.actionHref ?? undefined,
+    })),
+    latestTicket: supportTicket ? toSupportTicketSummary(supportTicket) : null,
+  }
+}
+
+async function buildAnalyticsRouteData(store: Store, user: StoredUser) {
+  await ensureFraudReviews(store, user)
+  const featureFlags = await loadFeatureFlags(store)
+  const payoutRecords = await store.listPayoutRecords()
+  const fraudQueue = await store.listFraudReviews()
+  const base = buildAnalyticsIntelligence(user)
+
+  return {
+    analyticsKpis: staticAppData.analyticsKpis,
+    weeklyChartData: staticAppData.weeklyChartData,
+    claimsBreakdown: staticAppData.claimsBreakdown,
+    fraudSignals: staticAppData.fraudSignals,
+    financialHealth: staticAppData.financialHealth,
+    unitEconomics: staticAppData.unitEconomics,
+    lossRatio: base.lossRatio,
+    predictedClaimsNextWeek: base.predictedClaimsNextWeek,
+    forecastSummary: base.forecastSummary,
+    zoneForecasts: base.zoneForecasts,
+    fraudQueue: fraudQueue.map((review) => ({
+      id: review.id,
+      workerName: review.workerName,
+      zone: review.zone,
+      riskLabel: review.riskLabel,
+      score: review.score,
+      reason: review.reason,
+      status: review.status,
+    })),
+    recentPayouts: payoutRecords.length > 0 ? payoutRecords.slice(0, 5).map(toPayoutState) : base.recentPayouts,
+    payoutOps: payoutRecords.slice(0, 8).map((record) => ({
+      reference: record.reference,
+      workerName: record.userId,
+      zone: record.zone,
+      amount: record.amount,
+      provider: record.provider,
+      status: record.status,
+      updatedAt: record.updatedAt,
+    })),
+    featureFlags: featureFlags.map(toFeatureFlagPayload),
   }
 }
 
@@ -731,6 +995,245 @@ function buildPolicySnapshot(user: StoredUser, settings: ProfileSetting[]) {
     triggers: staticAppData.triggerCards,
     dynamicPremium: buildRiskOutlook(user),
     autopayState: buildAutopayState(user, settings),
+  }
+}
+
+async function upsertSignupWorker(store: Store, payload: Parameters<typeof buildSignupUser>[0] | null) {
+  if (!payload) {
+    throw new Error('Signup payload missing for OTP verification')
+  }
+
+  const existing = await store.getUserByPhone(payload.phone)
+  const built = buildSignupUser(payload)
+
+  return existing
+    ? await store.upsertUser({
+        ...existing,
+        ...built,
+        id: existing.id,
+        email: existing.email ?? built.email,
+        createdAt: existing.createdAt,
+        updatedAt: new Date().toISOString(),
+        lastLoginAt: existing.lastLoginAt,
+      })
+    : await store.upsertUser(built)
+}
+
+async function loadFeatureFlags(store: Store) {
+  const existing = await store.getFeatureFlags()
+  if (existing.length > 0) {
+    return existing
+  }
+
+  for (const flag of defaultFeatureFlags) {
+    await store.upsertFeatureFlag({
+      ...flag,
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
+  return store.getFeatureFlags()
+}
+
+async function ensureFraudReviews(store: Store, user: StoredUser) {
+  const existing = await store.listFraudReviews()
+  if (existing.length > 0) {
+    return existing
+  }
+
+  const seeds = buildAnalyticsIntelligence(user).fraudQueue
+  for (const item of seeds) {
+    await store.upsertFraudReview({
+      id: item.id,
+      userId: user.id,
+      workerName: item.workerName,
+      zone: item.zone,
+      riskLabel: item.riskLabel,
+      score: item.score,
+      reason: item.reason,
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      resolutionNote: null,
+    })
+  }
+
+  return store.listFraudReviews()
+}
+
+async function emitNotifications(
+  store: Store,
+  input: Parameters<typeof buildNotificationBatch>[0],
+) {
+  const batch = buildNotificationBatch(input)
+  for (const item of batch) {
+    await store.createNotification(item)
+  }
+}
+
+async function persistSimulatedPayout(
+  store: Store,
+  user: StoredUser,
+  payout: ReturnType<typeof buildPayoutState>,
+) {
+  const claimId = `claim-${payout.reference}`
+  const createdAt = new Date().toISOString()
+  const record: PayoutRecord = {
+    reference: payout.reference,
+    claimId,
+    userId: user.id,
+    amount: payout.amount,
+    status: payout.status,
+    provider: payout.provider,
+    rail: payout.rail,
+    etaMinutes: payout.etaMinutes,
+    updatedAt: payout.updatedAt,
+    createdAt,
+    triggerTitle: staticAppData.activeAlert.type,
+    zone: user.zone,
+  }
+
+  await store.upsertPayoutRecord(record)
+
+  const timeline: ClaimTimelineRecord[] = [
+    {
+      id: `${claimId}-trigger`,
+      claimId,
+      userId: user.id,
+      title: 'Trigger detected',
+      description: `${staticAppData.activeAlert.type} protection activated in ${user.zone}.`,
+      status: 'warning',
+      createdAt,
+    },
+    {
+      id: `${claimId}-fraud`,
+      claimId,
+      userId: user.id,
+      title: 'Fraud checks cleared',
+      description: 'GPS, weather, and duplicate-claim signals support zero-touch processing.',
+      status: 'success',
+      createdAt: payout.updatedAt,
+    },
+    {
+      id: `${claimId}-paid`,
+      claimId,
+      userId: user.id,
+      title: 'Instant payout completed',
+      description: `₹${payout.amount} settled via ${payout.provider} to ${payout.rail}.`,
+      status: 'success',
+      createdAt: payout.updatedAt,
+    },
+  ]
+
+  for (const event of timeline) {
+    await store.appendClaimTimeline(event)
+  }
+
+  await emitNotifications(store, {
+    userId: user.id,
+    kind: 'payout',
+    title: 'Instant payout sent',
+    body: `₹${payout.amount} has been queued to ${payout.rail} via ${payout.provider}.`,
+    actionLabel: 'View receipt',
+    actionHref: `/claims?receipt=${payout.reference}`,
+    channels: ['in_app', 'whatsapp'],
+  })
+
+  return record
+}
+
+async function persistSupportRequest(
+  store: Store,
+  user: StoredUser,
+  channel: SupportTicketRecord['channel'],
+) {
+  const createdAt = new Date().toISOString()
+  const ticket: SupportTicketRecord = {
+    ticketId: `support-${user.id}-${Date.now()}`,
+    userId: user.id,
+    status: 'queued',
+    channel,
+    callbackEtaMinutes: 2,
+    hotline: '1800-313-KAVACH',
+    message: 'Guardian support has been queued and will contact the worker shortly.',
+    createdAt,
+    updatedAt: createdAt,
+  }
+
+  await store.upsertSupportTicket(ticket)
+
+  const latestPayout = (await store.listPayoutRecords(user.id))[0]
+  if (latestPayout) {
+    await store.appendClaimTimeline({
+      id: `${latestPayout.claimId}-support-${Date.now()}`,
+      claimId: latestPayout.claimId,
+      userId: user.id,
+      title: 'Guardian support queued',
+      description: `${channel} support requested for the latest disruption event.`,
+      status: 'info',
+      createdAt,
+    })
+  }
+
+  await emitNotifications(store, {
+    userId: user.id,
+    kind: 'support',
+    title: 'Guardian support requested',
+    body: `${channel} support is queued with a ${ticket.callbackEtaMinutes} minute ETA.`,
+    actionLabel: 'Open support',
+    actionHref: '/alerts',
+    channels: ['in_app', 'whatsapp'],
+  })
+
+  return ticket
+}
+
+function payoutRowsFromRecords(records: PayoutRecord[], user: StoredUser) {
+  if (records.length === 0) {
+    return staticAppData.payoutHistory
+  }
+
+  return records.map((record) => ({
+    date: formatShortDate(record.updatedAt),
+    type: '💸 Payout',
+    disruption: record.triggerTitle,
+    zone: record.zone,
+    amount: record.amount,
+    status: capitalizePayoutStatus(record.status),
+  }))
+}
+
+function toPayoutState(record: PayoutRecord) {
+  return {
+    reference: record.reference,
+    amount: record.amount,
+    status: record.status,
+    provider: record.provider,
+    rail: record.rail,
+    etaMinutes: record.etaMinutes,
+    updatedAt: record.updatedAt,
+  }
+}
+
+function toSupportTicketSummary(ticket: SupportTicketRecord) {
+  return {
+    ticketId: ticket.ticketId,
+    status: ticket.status,
+    channel: ticket.channel,
+    callbackEtaMinutes: ticket.callbackEtaMinutes,
+    hotline: ticket.hotline,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
+    message: ticket.message,
+  }
+}
+
+function toFeatureFlagPayload(flag: Awaited<ReturnType<typeof loadFeatureFlags>>[number]) {
+  return {
+    key: flag.key,
+    label: flag.label,
+    description: flag.description,
+    enabled: flag.enabled,
   }
 }
 
@@ -818,6 +1321,25 @@ function buildPremiumHistory(user: StoredUser) {
 
 function defaultNextDeduction() {
   return 'Monday, 13 April 2026'
+}
+
+function formatShortDate(isoDate: string) {
+  return new Date(isoDate).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function capitalizePayoutStatus(status: PayoutRecord['status']) {
+  return status
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function normalizePhone(phone: string) {
+  return phone.replace(/\D/g, '')
 }
 
 function requireAdmin(user: StoredUser, res: express.Response) {

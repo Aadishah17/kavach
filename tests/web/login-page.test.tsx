@@ -66,4 +66,25 @@ describe('Login page', () => {
       expect(screen.getByText('Claims destination')).toBeInTheDocument()
     })
   })
+
+  test('routes emergency support to the public help page', async () => {
+    authMocks.useAuth.mockReturnValue({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      loginWithPhone: vi.fn(),
+      loginAsDemo: vi.fn(),
+      completeOnboarding: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: /emergency support/i })).toHaveAttribute('href', '/help')
+  })
 })

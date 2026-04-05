@@ -78,7 +78,7 @@ export function PolicyPage() {
   return (
     <motion.section
       {...pageTransition}
-      className="space-y-8 pb-4"
+      className="space-y-8 pb-4 overflow-x-hidden"
     >
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -96,7 +96,7 @@ export function PolicyPage() {
             type="button"
             onClick={() => void downloadReceipt()}
             disabled={busy === 'receipt'}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-white transition hover:bg-navy-mid disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-white transition hover:bg-navy-mid disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {busy === 'receipt' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Download receipt
@@ -176,7 +176,7 @@ export function PolicyPage() {
             type="button"
             onClick={() => void toggleAutopay()}
             disabled={busy === 'autopay'}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-navy px-5 py-3 text-sm font-semibold text-white"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-navy px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === 'autopay' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
             {policy.autopayState.enabled ? 'Pause AutoPay' : 'Resume AutoPay'}
@@ -243,16 +243,32 @@ export function PolicyPage() {
           </div>
           <StatusPill status="active">Live receipt</StatusPill>
         </div>
-        {policy.premiumHistory.map((item) => (
-          <div
-            key={item.cycle}
-            className="grid min-w-[640px] grid-cols-[1fr_1fr_1fr] gap-4 border-b border-sky-light px-5 py-4 text-sm last:border-b-0"
-          >
-            <div className="font-semibold text-navy">{item.cycle}</div>
-            <div className="text-muted">{item.paidOn}</div>
-            <div className="text-right font-semibold text-navy">{formatCurrency(item.amount)}</div>
-          </div>
-        ))}
+        <div className="grid gap-3 p-5 md:hidden">
+          {policy.premiumHistory.map((item) => (
+            <article key={item.cycle} className="rounded-[24px] bg-kavach px-4 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-semibold text-navy">{item.cycle}</div>
+                  <p className="mt-1 text-sm text-muted">{item.paidOn}</p>
+                </div>
+                <div className="text-right font-semibold text-navy">{formatCurrency(item.amount)}</div>
+              </div>
+              <p className="mt-3 text-sm text-muted">{item.note}</p>
+            </article>
+          ))}
+        </div>
+        <div className="hidden md:block">
+          {policy.premiumHistory.map((item) => (
+            <div
+              key={item.cycle}
+              className="grid min-w-[640px] grid-cols-[1fr_1fr_1fr] gap-4 border-b border-sky-light px-5 py-4 text-sm last:border-b-0"
+            >
+              <div className="font-semibold text-navy">{item.cycle}</div>
+              <div className="text-muted">{item.paidOn}</div>
+              <div className="text-right font-semibold text-navy">{formatCurrency(item.amount)}</div>
+            </div>
+          ))}
+        </div>
       </section>
     </motion.section>
   )

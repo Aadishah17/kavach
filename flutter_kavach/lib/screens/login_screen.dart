@@ -13,11 +13,13 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
     _phoneController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -29,6 +31,14 @@ class _LoginScreenState extends State<LoginScreen> {
     await context.read<AppProvider>().loginWithPhone(_phoneController.text.trim());
   }
 
+  Future<void> _submitOtpLogin() async {
+    if (_otpController.text.trim().isEmpty) {
+      return;
+    }
+
+    await context.read<AppProvider>().submitOtp(_otpController.text.trim());
+  }
+
   Future<void> _submitDemoLogin() async {
     await context.read<AppProvider>().demoLogin();
   }
@@ -37,6 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     final isBusy = provider.authState == AppAuthState.authenticating;
+    final needsOtp = provider.loginStage == AppLoginStage.otp;
 
     return Scaffold(
       backgroundColor: AppTheme.navy,
@@ -114,7 +125,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Enter the phone number you used during signup.',
+                          needsOtp
+                              ? 'A verification code was requested for ${provider.pendingPhoneNumber ?? 'your account'}.'
+                              : 'Enter the phone number you used during signup.',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: AppTheme.textSecondary,
                               ),
@@ -123,6 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
+                          enabled: !needsOtp,
                           decoration: InputDecoration(
                             labelText: 'Phone number',
                             hintText: '+91 9988776655',
@@ -138,8 +152,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                             return null;
                           },
-                          onFieldSubmitted: (_) => _submitPhoneLogin(),
+                          onFieldSubmitted: (_) => needsOtp ? _submitOtpLogin() : _submitPhoneLogin(),
                         ),
+                        if (needsOtp) ...[
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _otpController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'OTP code',
+                              hintText: '123456',
+                              prefixIcon: const Icon(Icons.password_rounded),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            onFieldSubmitted: (_) => _submitOtpLogin(),
+                          ),
+                        ],
                         if ((provider.errorMessage ?? '').isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Container(
@@ -163,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: double.infinity,
                           height: 54,
                           child: ElevatedButton(
-                            onPressed: isBusy ? null : _submitPhoneLogin,
+                            onPressed: isBusy ? null : (needsOtp ? _submitOtpLogin : _submitPhoneLogin),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.navy,
                               foregroundColor: Colors.white,
@@ -180,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text('Log in with phone'),
+                                : Text(needsOtp ? 'Verify OTP' : 'Log in with phone'),
                           ),
                         ),
                         const SizedBox(height: 12),

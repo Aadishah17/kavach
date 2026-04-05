@@ -14,7 +14,7 @@ const _defaultBaseUrl = String.fromEnvironment(
 
 abstract interface class KavachApiClient {
   Future<AuthSession?> restoreSession();
-  Future<AuthSession> loginWithPhone(String phone);
+  Future<AuthSession> loginWithPhone(String phone, {String? otp});
   Future<AuthSession> demoLogin();
   Future<Map<String, dynamic>> fetchAppData();
   Future<SupportTicket> requestEmergencySupport({String channel});
@@ -74,11 +74,11 @@ class HttpKavachApiClient implements KavachApiClient {
   }
 
   @override
-  Future<AuthSession> loginWithPhone(String phone) async {
+  Future<AuthSession> loginWithPhone(String phone, {String? otp}) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: await _headers(),
-      body: jsonEncode(LoginPayload(phone: phone).toJson()),
+      body: jsonEncode(LoginPayload(phone: phone, otp: otp).toJson()),
     );
 
     final session = await _requireSession(response, fallbackMessage: 'Unable to log in with phone.');
@@ -154,6 +154,15 @@ class HttpKavachApiClient implements KavachApiClient {
   }
 
   Future<AuthSession> _requireSession(http.Response response, {required String fallbackMessage}) async {
+    if (response.statusCode == 202) {
+      final payload = response.body.isNotEmpty ? _decodeJson(response.body) : const <String, dynamic>{};
+      throw KavachApiException(
+        message: _errorText(payload['message'], _errorText(payload['error'], 'OTP verification required.')),
+        statusCode: 202,
+        code: _errorText(payload['code'], 'otp_required'),
+      );
+    }
+
     if (response.statusCode == 200 || response.statusCode == 201) {
       return AuthSession.fromJson(_decodeJson(response.body));
     }
@@ -203,6 +212,14 @@ class HttpKavachApiClient implements KavachApiClient {
     }
 
     return const {};
+  }
+
+  String _errorText(dynamic value, [String fallback = '']) {
+    final text = value?.toString();
+    if (text == null || text.isEmpty) {
+      return fallback;
+    }
+    return text;
   }
 
   KavachApiException _apiException(http.Response response, {required String fallbackMessage}) {

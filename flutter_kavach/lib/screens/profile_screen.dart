@@ -13,7 +13,7 @@ class ProfileScreen extends StatelessWidget {
     final provider = context.watch<AppProvider>();
     final data = provider.appData;
 
-    if (provider.dataState == AppDataState.loading) {
+    if (provider.isLoading && data == null) {
       return const Scaffold(
         backgroundColor: AppTheme.background,
         body: Center(child: CircularProgressIndicator(color: AppTheme.navy)),
@@ -52,6 +52,13 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (provider.hasStaleData) ...[
+              _StaleBanner(
+                message: provider.errorMessage ?? 'Showing your last synced profile bundle.',
+                onRetry: provider.loadAppData,
+              ),
+              const SizedBox(height: 16),
+            ],
             _ProfileHeader(name: data.userName, platform: data.platform, zone: data.zone),
             const SizedBox(height: 16),
             _SummaryCard(data: data),
@@ -86,6 +93,39 @@ class ProfileScreen extends StatelessWidget {
             _SupportAndSignOut(provider: provider),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _StaleBanner extends StatelessWidget {
+  const _StaleBanner({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: AppTheme.gold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
       ),
     );
   }

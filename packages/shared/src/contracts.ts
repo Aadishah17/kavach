@@ -17,6 +17,26 @@ export const loginSchema = z.object({
   phone: z.string().trim().min(6),
 })
 
+export const otpRequestSchema = z.object({
+  phone: z.string().trim().min(6),
+  purpose: z.enum(['login', 'signup']),
+  signup: signupSchema.optional(),
+}).superRefine((value, ctx) => {
+  if (value.purpose === 'signup' && !value.signup) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Signup details are required for signup OTP',
+      path: ['signup'],
+    })
+  }
+})
+
+export const otpVerifySchema = z.object({
+  challengeId: z.string().trim().min(1),
+  phone: z.string().trim().min(6),
+  code: z.string().trim().length(6),
+})
+
 export const profileSettingSchema = z.object({
   label: z.string().trim().min(1),
   value: z.string().trim().min(1),
@@ -42,4 +62,8 @@ export const policyUpgradeSchema = z.object({
 
 export const autopayManagementSchema = z.object({
   enabled: z.boolean(),
+})
+
+export const fraudReviewActionSchema = z.object({
+  action: z.enum(['approve', 'reject', 'escalate', 'resolve']),
 })

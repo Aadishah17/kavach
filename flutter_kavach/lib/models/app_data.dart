@@ -88,7 +88,9 @@ class AppData {
         ? <AlertItem>[AlertItem.fromJson(claims['activeAlert'] as Map<String, dynamic>)]
         : _mapOf(dashboard['activeAlert']).isNotEmpty
             ? <AlertItem>[AlertItem.fromJson(dashboard['activeAlert'] as Map<String, dynamic>)]
-            : _mapList(dashboard['alerts']).map((item) => AlertItem.fromJson(item)).toList();
+            : _mapList(claims['alerts']).isNotEmpty
+                ? _mapList(claims['alerts']).map((item) => AlertItem.fromJson(item)).toList()
+                : _mapList(dashboard['alerts']).map((item) => AlertItem.fromJson(item)).toList();
 
     final payoutHistory = _mapList(claims['payoutHistory']).map((item) => PayoutItem.fromJson(item)).toList();
     final premiumHistory = _mapList(claims['premiumHistory']).isNotEmpty
@@ -126,6 +128,254 @@ class AppData {
       monthlyProtectedAmount: _readInt(profile['monthlyProtectedAmount']),
       profileSettings: _profileSettingsMap(profile['settings']),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'user': {
+        'name': userName,
+        'platform': platform,
+        'plan': plan,
+        'zone': zone,
+        'trustScore': trustScore,
+        'trustStatus': trustStatus,
+        'iwi': insuredIncome,
+      },
+      'dashboard': {
+        'dateRange': dateRange,
+        'coverageStatus': coverageStatus,
+        'kpis': kpis
+            .map(
+              (item) => {
+                'label': item.label,
+                'value': item.value,
+                'hint': item.hint,
+                'accent': item.accent,
+                'inverse': item.inverse,
+              },
+            )
+            .toList(growable: false),
+        'riskOutlook': {
+          'level': riskOutlook.level,
+          'summary': riskOutlook.summary,
+          'nextLikelyTrigger': riskOutlook.nextLikelyTrigger,
+          'premiumDelta': riskOutlook.premiumDelta,
+          'protectedAmount': riskOutlook.protectedAmount,
+          'coverageHours': riskOutlook.coverageHours,
+          'confidence': riskOutlook.confidence,
+        },
+        'payoutState': {
+          'reference': payoutState.reference,
+          'amount': payoutState.amount,
+          'status': payoutState.status,
+          'provider': payoutState.provider,
+          'rail': payoutState.rail,
+          'etaMinutes': payoutState.etaMinutes,
+          'updatedAt': payoutState.updatedAt,
+        },
+        'fraudAssessment': {
+          'score': fraudAssessment.score,
+          'status': fraudAssessment.status,
+          'summary': fraudAssessment.summary,
+          'signals': fraudAssessment.signals
+              .map(
+                (signal) => {
+                  'label': signal.label,
+                  'score': signal.score,
+                  'status': signal.status,
+                  'reason': signal.reason,
+                },
+              )
+              .toList(growable: false),
+        },
+        'triggerEvaluations': triggerEvaluations
+            .map(
+              (item) => {
+                'id': item.id,
+                'name': item.name,
+                'source': item.source,
+                'status': item.status,
+                'detail': item.detail,
+                'probability': item.probability,
+              },
+            )
+            .toList(growable: false),
+        'quickActions': quickActions
+            .map(
+              (item) => {
+                'id': item.id,
+                'label': item.label,
+                'description': item.description,
+                'action': item.action,
+                'tone': item.tone,
+              },
+            )
+            .toList(growable: false),
+      },
+      'claims': {
+        'payoutHistory': payoutHistory
+            .map(
+              (item) => {
+                'label': item.label,
+                'amount': item.amount,
+                'date': item.date,
+                'status': item.status,
+                'type': item.type,
+              },
+            )
+            .toList(growable: false),
+        'premiumHistory': premiumHistory
+            .map(
+              (item) => {
+                'label': item.label,
+                'amount': item.amount,
+                'date': item.date,
+                'status': item.status,
+                'type': item.type,
+              },
+            )
+            .toList(growable: false),
+        'payoutState': {
+          'reference': payoutState.reference,
+          'amount': payoutState.amount,
+          'status': payoutState.status,
+          'provider': payoutState.provider,
+          'rail': payoutState.rail,
+          'etaMinutes': payoutState.etaMinutes,
+          'updatedAt': payoutState.updatedAt,
+        },
+        'fraudAssessment': {
+          'score': fraudAssessment.score,
+          'status': fraudAssessment.status,
+          'summary': fraudAssessment.summary,
+          'signals': fraudAssessment.signals
+              .map(
+                (signal) => {
+                  'label': signal.label,
+                  'score': signal.score,
+                  'status': signal.status,
+                  'reason': signal.reason,
+                },
+              )
+              .toList(growable: false),
+        },
+        'verificationSignals': verificationSignals,
+        'alerts': activeAlerts
+            .map(
+              (item) => {
+                'title': item.title,
+                'severity': item.severity,
+                'description': item.description,
+                'amount': item.amount,
+              },
+            )
+            .toList(growable: false),
+        'activeAlert': activeAlerts.isNotEmpty
+            ? {
+                'title': activeAlerts.first.title,
+                'severity': activeAlerts.first.severity,
+                'description': activeAlerts.first.description,
+                'amount': activeAlerts.first.amount,
+              }
+            : null,
+      },
+      'policy': {
+        'coverage': policyCoverage
+            .map(
+              (item) => {
+                'title': item.title,
+                'description': item.description,
+                'badge': item.badge,
+              },
+            )
+            .toList(growable: false),
+        'triggers': triggerCards
+            .map(
+              (item) => {
+                'emoji': item.emoji,
+                'name': item.name,
+                'condition': item.condition,
+                'coverage': item.coverage,
+              },
+            )
+            .toList(growable: false),
+        'premiumHistory': premiumHistory
+            .map(
+              (item) => {
+                'label': item.label,
+                'amount': item.amount,
+                'date': item.date,
+                'status': item.status,
+                'type': item.type,
+              },
+            )
+            .toList(growable: false),
+        'dynamicPremium': {
+          'level': dynamicPremium.level,
+          'summary': dynamicPremium.summary,
+          'nextLikelyTrigger': dynamicPremium.nextLikelyTrigger,
+          'premiumDelta': dynamicPremium.premiumDelta,
+          'protectedAmount': dynamicPremium.protectedAmount,
+          'coverageHours': dynamicPremium.coverageHours,
+          'confidence': dynamicPremium.confidence,
+        },
+        'autopayState': {
+          'enabled': autopayState.enabled,
+          'mandateStatus': autopayState.mandateStatus,
+          'nextCharge': autopayState.nextCharge,
+          'note': autopayState.note,
+        },
+      },
+      'alerts': {
+        'feed': alertsFeed
+            .map(
+              (item) => {
+                'icon': item.icon,
+                'title': item.title,
+                'body': item.body,
+                'time': item.time,
+                'accent': item.accent,
+                'status': item.status,
+              },
+            )
+            .toList(growable: false),
+        'emergencyResources': emergencyResources
+            .map(
+              (item) => {
+                'label': item.label,
+                'number': item.number,
+                'icon': item.icon,
+                'description': item.description,
+                'cta': item.cta,
+              },
+            )
+            .toList(growable: false),
+        'supportContacts': supportContacts
+            .map(
+              (item) => {
+                'initials': item.initials,
+                'name': item.name,
+                'relation': item.relation,
+                'phone': item.phone,
+              },
+            )
+            .toList(growable: false),
+      },
+      'profile': {
+        'documents': profileDocuments
+            .map(
+              (item) => {
+                'label': item.label,
+                'status': item.status,
+                'icon': item.icon,
+                'verified': item.verified,
+              },
+            )
+            .toList(growable: false),
+        'settings': profileSettings,
+        'monthlyProtectedAmount': monthlyProtectedAmount,
+      },
+    };
   }
 
   static String _trustLabel(int score) {
@@ -584,10 +834,20 @@ class AutopayState {
 
 class LoginPayload {
   final String phone;
+  final String? otp;
 
-  LoginPayload({required this.phone});
+  LoginPayload({
+    required this.phone,
+    this.otp,
+  });
 
-  Map<String, dynamic> toJson() => {'phone': phone};
+  Map<String, dynamic> toJson() {
+    final payload = <String, dynamic>{'phone': phone};
+    if (otp != null && otp!.isNotEmpty) {
+      payload['otp'] = otp;
+    }
+    return payload;
+  }
 }
 
 class AuthSession {
@@ -630,6 +890,12 @@ class SupportTicket {
       message: _readString(json['message']),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'ticketId': ticketId,
+        'status': status,
+        'message': message,
+      };
 }
 
 Map<String, dynamic> _mapOf(dynamic value) {

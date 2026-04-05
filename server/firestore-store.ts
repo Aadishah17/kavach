@@ -1,6 +1,18 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { Firestore } from '@google-cloud/firestore'
-import type { ProfileSetting, SessionRecord, StoredUser } from './types.js'
+import type {
+  ClaimTimelineRecord,
+  FeatureFlagRecord,
+  FraudReviewAction,
+  FraudReviewRecord,
+  NotificationRecord,
+  OtpChallengeRecord,
+  PayoutRecord,
+  ProfileSetting,
+  SessionRecord,
+  StoredUser,
+  SupportTicketRecord,
+} from './types.js'
 import { buildDemoUser, defaultProfileSettings } from './seed.js'
 
 const SESSION_TTL_DAYS = 30
@@ -171,6 +183,149 @@ export class FirestoreStore {
   async updateProfileSettings(userId: string, settings: ProfileSetting[]): Promise<ProfileSetting[]> {
     await this.db.collection('profileSettings').doc(userId).set({ settings })
     return this.getProfileSettings(userId)
+  }
+
+  async createOtpChallenge(challenge: OtpChallengeRecord) {
+    await this.db.collection('otpChallenges').doc(challenge.id).set(challenge)
+    return (await this.getOtpChallenge(challenge.id))!
+  }
+
+  async getOtpChallenge(id: string): Promise<OtpChallengeRecord | null> {
+    const doc = await this.db.collection('otpChallenges').doc(id).get()
+    return doc.exists ? (doc.data() as OtpChallengeRecord) : null
+  }
+
+  async updateOtpChallenge(challenge: OtpChallengeRecord) {
+    await this.db.collection('otpChallenges').doc(challenge.id).set(challenge, { merge: true })
+    return (await this.getOtpChallenge(challenge.id))!
+  }
+
+  async listNotifications(userId: string): Promise<NotificationRecord[]> {
+    const snapshot = await this.db
+      .collection('notifications')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .get()
+
+    return snapshot.docs.map((doc) => doc.data() as NotificationRecord)
+  }
+
+  async createNotification(notification: NotificationRecord) {
+    await this.db.collection('notifications').doc(notification.id).set(notification)
+    return notification
+  }
+
+  async listClaimTimeline(userId: string, claimId?: string): Promise<ClaimTimelineRecord[]> {
+    let query = this.db.collection('claimTimeline').where('userId', '==', userId)
+    if (claimId) {
+      query = query.where('claimId', '==', claimId)
+    }
+
+    const snapshot = await query.orderBy('createdAt', 'asc').get()
+    return snapshot.docs.map((doc) => doc.data() as ClaimTimelineRecord)
+  }
+
+  async appendClaimTimeline(event: ClaimTimelineRecord) {
+    await this.db.collection('claimTimeline').doc(event.id).set(event)
+    return event
+  }
+
+  async upsertPayoutRecord(record: PayoutRecord) {
+    await this.db.collection('payoutRecords').doc(record.reference).set(record, { merge: true })
+    return (await this.getPayoutRecord(record.reference))!
+  }
+
+  async getPayoutRecord(reference: string): Promise<PayoutRecord | null> {
+    const doc = await this.db.collection('payoutRecords').doc(reference).get()
+    return doc.exists ? (doc.data() as PayoutRecord) : null
+  }
+
+  async listPayoutRecords(userId?: string): Promise<PayoutRecord[]> {
+    const query = userId
+      ? this.db.collection('payoutRecords').where('userId', '==', userId)
+      : this.db.collection('payoutRecords')
+
+    const snapshot = await query.orderBy('createdAt', 'desc').get()
+    return snapshot.docs.map((doc) => doc.data() as PayoutRecord)
+  }
+
+  async upsertSupportTicket(ticket: SupportTicketRecord) {
+    await this.db.collection('supportTickets').doc(ticket.ticketId).set(ticket, { merge: true })
+    return (await this.getLatestSupportTicket(ticket.userId))!
+  }
+
+  async listSupportTickets(userId: string): Promise<SupportTicketRecord[]> {
+    const snapshot = await this.db
+      .collection('supportTickets')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .get()
+
+    return snapshot.docs.map((doc) => doc.data() as SupportTicketRecord)
+  }
+
+  async getLatestSupportTicket(userId: string): Promise<SupportTicketRecord | null> {
+    const snapshot = await this.db
+      .collection('supportTickets')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get()
+
+    if (snapshot.empty) return null
+    const [doc] = snapshot.docs
+    return doc ? (doc.data() as SupportTicketRecord) : null
+  }
+
+  async upsertFraudReview(review: FraudReviewRecord) {
+    await this.db.collection('fraudReviews').doc(review.id).set(review, { merge: true })
+    return (await this.getFraudReview(review.id))!
+  }
+
+  async getFraudReview(id: string): Promise<FraudReviewRecord | null> {
+    const doc = await this.db.collection('fraudReviews').doc(id).get()
+    return doc.exists ? (doc.data() as FraudReviewRecord) : null
+  }
+
+  async listFraudReviews(): Promise<FraudReviewRecord[]> {
+    const snapshot = await this.db.collection('fraudReviews').orderBy('updatedAt', 'desc').get()
+    return snapshot.docs.map((doc) => doc.data() as FraudReviewRecord)
+  }
+
+  async applyFraudReviewAction(id: string, action: FraudReviewAction) {
+    const current = await this.getFraudReview(id)
+    if (!current) {
+      return null
+    }
+
+    const status = action === 'approve'
+      ? 'approved'
+      : action === 'reject'
+        ? 'rejected'
+        : action === 'escalate'
+          ? 'escalated'
+          : 'resolved'
+
+    const updated: FraudReviewRecord = {
+      ...current,
+      status,
+      updatedAt: new Date().toISOString(),
+      resolutionNote: `Updated via ${action} action`,
+    }
+
+    await this.db.collection('fraudReviews').doc(id).set(updated, { merge: true })
+    return updated
+  }
+
+  async getFeatureFlags(): Promise<FeatureFlagRecord[]> {
+    const snapshot = await this.db.collection('featureFlags').orderBy('key').get()
+    return snapshot.docs.map((doc) => doc.data() as FeatureFlagRecord)
+  }
+
+  async upsertFeatureFlag(flag: FeatureFlagRecord) {
+    await this.db.collection('featureFlags').doc(flag.key).set(flag, { merge: true })
+    const doc = await this.db.collection('featureFlags').doc(flag.key).get()
+    return doc.exists ? (doc.data() as FeatureFlagRecord) : null
   }
 
   // ─── Private ─────────────────────────────────────────────

@@ -4,10 +4,15 @@ import { Link } from 'react-router-dom'
 import { MockDashboardCard } from '../components/MockDashboardCard'
 import { PriceCard } from '../components/PriceCard'
 import { TriggerCard } from '../components/TriggerCard'
-import { howItWorksSteps, platformPartners, pricingTiers, problemCards, triggerCards } from '../data/mockData'
+import { faq, howItWorksSteps, platformPartners, pricingTiers, problemCards, trustProof, triggerCards } from '../data/mockData'
 import { pageTransition } from '../lib/motion'
 
 const heroStats = ['₹49/week', '<4 min payout', '7 triggers']
+const payoutExamples = [
+  { route: 'Koramangala', trigger: 'Heavy rain', payout: '₹571', time: '4 min' },
+  { route: 'HSR Layout', trigger: 'Flood watch', payout: '₹428', time: '6 min' },
+  { route: 'Indiranagar', trigger: 'Bandh shutdown', payout: '₹214', time: '8 min' },
+]
 
 export function LandingPage() {
   return (
@@ -17,13 +22,13 @@ export function LandingPage() {
     >
       <section
         id="top"
-        className="relative overflow-hidden bg-navy pt-28 text-white"
+        className="relative overflow-hidden bg-navy pt-24 text-white sm:pt-28"
       >
         <div className="absolute inset-0 hero-grid opacity-80" />
         <div className="absolute -left-24 top-10 h-80 w-80 rounded-full bg-sky/20 blur-3xl" />
         <div className="absolute right-[-80px] top-20 h-64 w-64 rounded-full bg-gold/15 blur-3xl" />
 
-        <div className="container-shell relative grid gap-12 pb-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="container-shell relative grid gap-12 pb-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:pb-24">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -46,24 +51,24 @@ export function LandingPage() {
               "Jab kaam rukta hai, tab bhi kamai ka sahara milta hai."
             </p>
 
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row flex-wrap">
+            <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
               <Link
                 to="/signup"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gold px-6 text-sm font-semibold text-navy transition hover:bg-gold/90"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gold px-6 text-sm font-semibold text-navy transition hover:bg-gold/90 sm:w-auto"
               >
                 Enroll in 4 Minutes
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 to="/login"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/20 px-6 text-sm font-semibold text-white transition hover:bg-white/10 sm:w-auto"
               >
                 <Play className="h-4 w-4" />
                 Returning worker login
               </Link>
               <a
                 href="/downloads/kavach-android.apk"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sky px-6 text-sm font-semibold text-navy transition hover:bg-sky-light"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky px-6 text-sm font-semibold text-navy transition hover:bg-sky-light sm:w-auto"
                 download
               >
                 <Smartphone className="h-4 w-4" />
@@ -71,9 +76,9 @@ export function LandingPage() {
               </a>
             </div>
 
-            <div className="mt-12 grid max-w-lg grid-cols-3 gap-4 border-t border-white/10 pt-6">
+            <div className="mt-12 grid max-w-lg grid-cols-1 gap-4 border-t border-white/10 pt-6 sm:grid-cols-3">
               {heroStats.map((stat) => (
-                <div key={stat}>
+                <div key={stat} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
                   <div className="font-serif text-2xl text-gold">{stat}</div>
                   <div className="mt-2 text-xs font-mono uppercase tracking-[0.18em] text-white/55">
                     Kavach shield
@@ -137,6 +142,59 @@ export function LandingPage() {
                 <div className="mt-8 font-serif text-4xl text-navy">{card.stat}</div>
                 <div className="mt-2 text-sm text-muted">{card.statLabel}</div>
               </motion.article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-kavach py-20">
+        <div className="container-shell">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="eyebrow">Proof from the field</p>
+              <h2 className="mt-4 text-4xl sm:text-5xl">Recent payout examples and trust signals.</h2>
+            </div>
+            <p className="max-w-md text-sm leading-7 text-muted">
+              These examples show how the public product is meant to feel on mobile: simple, concrete, and easy to scan.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {trustProof.map((item) => (
+              <article
+                key={item.title}
+                className="panel-card flex h-full flex-col justify-between p-6"
+              >
+                <div>
+                  <p className="mono-label">Trust signal</p>
+                  <h3 className="mt-3 text-xl font-semibold text-navy">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-muted">{item.detail}</p>
+                </div>
+                <div className="mt-6 inline-flex w-fit rounded-full bg-sky-pale px-4 py-2 font-serif text-lg text-navy">
+                  {item.metric}
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {payoutExamples.map((example) => (
+              <article
+                key={`${example.route}-${example.trigger}`}
+                className="rounded-[24px] border border-white/10 bg-white/6 p-5 text-white"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-sky-light/70">
+                      Live example
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-white">{example.route}</h3>
+                  </div>
+                  <div className="rounded-full bg-gold px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-navy">
+                    {example.time}
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-7 text-sky-light/80">{example.trigger}</p>
+                <div className="mt-6 text-3xl font-serif text-gold">{example.payout}</div>
+              </article>
             ))}
           </div>
         </div>
@@ -219,6 +277,33 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="bg-white py-20">
+        <div className="container-shell">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="eyebrow">FAQ</p>
+              <h2 className="mt-4 text-4xl sm:text-5xl">Answers before you sign up.</h2>
+            </div>
+            <p className="max-w-md text-sm leading-7 text-muted">
+              Public help stays lightweight, and it points away from protected support surfaces unless you are signed in.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-4 lg:grid-cols-2">
+            {faq.map((item) => (
+              <details
+                key={item.question}
+                className="panel-card group rounded-[24px] p-5"
+              >
+                <summary className="cursor-pointer list-none text-lg font-semibold text-navy">
+                  {item.question}
+                </summary>
+                <p className="mt-3 text-sm leading-7 text-muted">{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="bg-kavach py-20">
         <div className="container-shell">
           <div className="rounded-[32px] bg-[linear-gradient(135deg,#0D2B3E_0%,#1A4560_100%)] px-8 py-12 text-center text-white shadow-lg sm:px-12">
@@ -234,10 +319,10 @@ export function LandingPage() {
                 Start Free Week
               </Link>
               <Link
-                to="/alerts"
+                to="/help"
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-6 text-sm font-semibold text-white transition hover:bg-white/10"
               >
-                Chat with support
+                Visit help center
               </Link>
             </div>
           </div>
@@ -322,12 +407,12 @@ function footerHref(label: string) {
     'About Kavach': '/#top',
     'Partner networks': '/#features',
     'Hackathon build': '/#top',
-    Contact: '/alerts',
-    'Emergency support': '/alerts',
+    Contact: '/help',
+    'Emergency support': '/help',
     Login: '/login',
     'Policy docs': '/policy',
-    'Help center': '/alerts',
+    'Help center': '/help',
   }
 
-  return map[label] ?? '/alerts'
+  return map[label] ?? '/help'
 }

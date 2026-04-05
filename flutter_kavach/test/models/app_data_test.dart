@@ -208,4 +208,90 @@ void main() {
     expect(data.supportContacts.first.phone, '1800-123-456');
     expect(data.monthlyProtectedAmount, 24000);
   });
+
+  test('round-trips app data through cache json', () {
+    final original = AppData.fromJson({
+      'user': {
+        'name': 'Meera Jain',
+        'platform': 'Swiggy',
+        'plan': 'Standard',
+        'zone': 'Koramangala',
+        'trustScore': 88,
+        'iwi': 5400,
+      },
+      'dashboard': {
+        'dateRange': 'Mar 31 - Apr 6',
+        'coverageStatus': 'active',
+        'kpis': [
+          {
+            'label': 'Protected',
+            'value': '₹7,600',
+            'hint': 'Coverage is live',
+            'accent': 'green',
+          },
+        ],
+        'riskOutlook': {
+          'level': 'moderate',
+          'summary': 'Weather risk is rising in east Bengaluru',
+          'nextLikelyTrigger': 'Heavy rain',
+          'premiumDelta': 12,
+          'protectedAmount': 7600,
+          'coverageHours': 18,
+          'confidence': 74,
+        },
+        'payoutState': {
+          'reference': 'pay_123',
+          'amount': 571,
+          'status': 'paid',
+          'provider': 'upi_mock',
+          'rail': 'UPI',
+          'etaMinutes': 0,
+          'updatedAt': '2026-04-05T07:00:00Z',
+        },
+        'fraudAssessment': {
+          'score': 13,
+          'status': 'clear',
+          'summary': 'Signals look consistent',
+          'signals': const [],
+        },
+      },
+      'claims': {
+        'payoutHistory': const [],
+        'premiumHistory': const [],
+        'verificationSignals': ['GPS stable'],
+      },
+      'policy': {
+        'coverage': const [],
+        'triggers': const [],
+        'dynamicPremium': {
+          'level': 'moderate',
+          'summary': 'Premium is temporarily elevated',
+          'nextLikelyTrigger': 'More rain expected tonight',
+          'premiumDelta': 12,
+          'protectedAmount': 7600,
+          'coverageHours': 18,
+          'confidence': 74,
+        },
+      },
+      'alerts': {
+        'feed': const [],
+        'emergencyResources': const [],
+        'supportContacts': const [],
+      },
+      'profile': {
+        'documents': const [],
+        'settings': const [],
+        'monthlyProtectedAmount': 24000,
+      },
+    });
+
+    final encoded = original.toJson();
+    final restored = AppData.fromJson(encoded);
+
+    expect(restored.userName, original.userName);
+    expect(restored.platform, original.platform);
+    expect(restored.riskOutlook.summary, original.riskOutlook.summary);
+    expect(restored.payoutState.reference, original.payoutState.reference);
+    expect(restored.profileSettings, original.profileSettings);
+  });
 }

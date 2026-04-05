@@ -30,6 +30,10 @@ vi.mock('../../src/pages/LoginPage', () => ({
   LoginPage: () => <div>Login screen</div>,
 }))
 
+vi.mock('../../src/pages/HelpPage', () => ({
+  HelpPage: () => <div>Help screen</div>,
+}))
+
 vi.mock('../../src/pages/DashboardPage', () => ({
   DashboardPage: () => <div>Dashboard screen</div>,
 }))
@@ -128,5 +132,28 @@ describe('Protected route guards', () => {
     })
 
     expect(screen.queryByText('Analytics screen')).not.toBeInTheDocument()
+  })
+
+  test('renders the public help page', async () => {
+    authMocks.useAuth.mockReturnValue({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      loginAsDemo: vi.fn(),
+      loginWithPhone: vi.fn(),
+      completeOnboarding: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/help']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Help screen')).toBeInTheDocument()
+    })
   })
 })

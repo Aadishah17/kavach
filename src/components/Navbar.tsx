@@ -11,7 +11,7 @@ const landingLinks = [
   { label: 'Features', href: '/#features' },
   { label: 'How it Works', href: '/#how-it-works' },
   { label: 'Pricing', href: '/#pricing' },
-  { label: 'Support', href: '/alerts' },
+  { label: 'Support', href: '/help' },
 ]
 
 type NavbarProps = {
@@ -23,6 +23,7 @@ export function Navbar({ isApp = false }: NavbarProps) {
   const { logout, user } = useAuth()
   const location = useLocation()
 
+  const supportHref = isApp ? '/alerts' : '/help'
   const ctaHref = '/signup'
 
   return (
@@ -72,8 +73,8 @@ export function Navbar({ isApp = false }: NavbarProps) {
           <div className="hidden items-center gap-3 lg:flex">
             {isApp ? (
               <>
-                <Link
-                  to="/alerts"
+              <Link
+                  to={supportHref}
                   className="text-sm font-medium text-muted transition hover:text-navy"
                 >
                   Support

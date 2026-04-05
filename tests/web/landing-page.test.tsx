@@ -50,6 +50,7 @@ describe('Landing page', () => {
     expect(downloadLink).toHaveAttribute('download')
 
     expect(screen.getByRole('link', { name: /returning worker login/i })).toHaveAttribute('href', '/login')
-    expect(screen.getByRole('link', { name: /chat with support/i })).toHaveAttribute('href', '/alerts')
+    expect(screen.getByRole('link', { name: /visit help center/i })).toHaveAttribute('href', '/help')
+    expect(screen.getByText(/recent payout examples and trust signals/i)).toBeInTheDocument()
   })
 })
