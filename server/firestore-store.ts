@@ -36,7 +36,9 @@ export class FirestoreStore {
       .get()
 
     if (snapshot.empty) return null
-    return snapshot.docs[0].data() as StoredUser
+    const [doc] = snapshot.docs
+    if (!doc) return null
+    return doc.data() as StoredUser
   }
 
   async upsertUser(user: StoredUser): Promise<StoredUser> {
@@ -100,7 +102,10 @@ export class FirestoreStore {
 
     if (snapshot.empty) return null
 
-    const data = snapshot.docs[0].data()
+    const [doc] = snapshot.docs
+    if (!doc) return null
+
+    const data = doc.data()
     // Check expiry
     if (new Date(data.expiresAt) <= new Date()) return null
 
@@ -128,7 +133,10 @@ export class FirestoreStore {
 
     if (snapshot.empty) return null
 
-    await snapshot.docs[0].ref.update({ lastSeenAt: now, expiresAt })
+    const [doc] = snapshot.docs
+    if (!doc) return null
+
+    await doc.ref.update({ lastSeenAt: now, expiresAt })
     return this.getSession(token)
   }
 
@@ -143,7 +151,10 @@ export class FirestoreStore {
 
     if (snapshot.empty) return false
 
-    await snapshot.docs[0].ref.update({ revokedAt: new Date().toISOString() })
+    const [doc] = snapshot.docs
+    if (!doc) return false
+
+    await doc.ref.update({ revokedAt: new Date().toISOString() })
     return true
   }
 
