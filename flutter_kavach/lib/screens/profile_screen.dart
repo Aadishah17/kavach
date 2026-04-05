@@ -48,6 +48,7 @@ class ProfileScreen extends StatelessWidget {
       backgroundColor: AppTheme.background,
       appBar: AppBar(title: const Text('Profile')),
       body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

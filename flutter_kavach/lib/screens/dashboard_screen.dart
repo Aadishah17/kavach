@@ -65,6 +65,7 @@ class DashboardScreen extends StatelessWidget {
           color: AppTheme.navy,
           onRefresh: provider.loadAppData,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
               if (provider.hasStaleData) ...[
