@@ -19,10 +19,11 @@
     "start": "node server/dist/server/index.js"
   },
   "dependencies": {
+    "@google-cloud/firestore": "^7.11.0",
     "@headlessui/react": "^2.0.0",
+    "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.0",
     "express": "^5.1.0",
-    "@google-cloud/firestore": "^7.11.0",
     "framer-motion": "^11.0.0",
     "lucide-react": "^0.350.0",
     "react": "^18.2.0",
@@ -35,10 +36,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@remix-run/router": "^1.15.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@remix-run/router": "^1.15.1",
     "@types/express": "^5.0.3",
     "@types/node": "^24.12.0",
     "@types/react": "^18.2.66",
