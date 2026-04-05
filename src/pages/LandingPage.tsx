@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight, Play, Smartphone } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { MockDashboardCard } from '../components/MockDashboardCard'
 import { PriceCard } from '../components/PriceCard'
@@ -59,7 +59,7 @@ export function LandingPage() {
               "Jab kaam rukta hai, tab bhi kamai ka sahara milta hai."
             </p>
 
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+            <div className="mt-10 flex flex-col gap-4 sm:flex-row flex-wrap">
               <Link
                 to="/signup"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gold px-6 text-sm font-semibold text-navy transition hover:bg-gold/90"
@@ -75,6 +75,14 @@ export function LandingPage() {
                 <Play className="h-4 w-4" />
                 See Live Demo
               </button>
+              <a
+                href="/downloads/kavach-android.apk"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sky px-6 text-sm font-semibold text-navy transition hover:bg-sky-light"
+                download
+              >
+                <Smartphone className="h-4 w-4" />
+                Download App (Android)
+              </a>
             </div>
 
             <div className="mt-12 grid max-w-lg grid-cols-3 gap-4 border-t border-white/10 pt-6">

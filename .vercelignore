@@ -1,0 +1,13 @@
+.git/
+.github/
+.playwright-cli/
+.vercel/
+dist/
+node_modules/
+flutter_kavach/
+mobile/
+kavach-app/
+tests/
+preview.log
+server-runtime.*.log
+server-test.*.log
