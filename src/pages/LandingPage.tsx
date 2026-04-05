@@ -1,18 +1,15 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, Play, Smartphone } from 'lucide-react'
+import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { MockDashboardCard } from '../components/MockDashboardCard'
 import { PriceCard } from '../components/PriceCard'
+import { RiskCalculator } from '../components/RiskCalculator'
 import { TriggerCard } from '../components/TriggerCard'
 import { faq, howItWorksSteps, platformPartners, pricingTiers, problemCards, trustProof, triggerCards } from '../data/mockData'
 import { pageTransition } from '../lib/motion'
 
 const heroStats = ['₹49/week', '<4 min payout', '7 triggers']
-const payoutExamples = [
-  { route: 'Koramangala', trigger: 'Heavy rain', payout: '₹571', time: '4 min' },
-  { route: 'HSR Layout', trigger: 'Flood watch', payout: '₹428', time: '6 min' },
-  { route: 'Indiranagar', trigger: 'Bandh shutdown', payout: '₹214', time: '8 min' },
-]
 
 export function LandingPage() {
   return (
@@ -20,6 +17,10 @@ export function LandingPage() {
       {...pageTransition}
       className="overflow-x-hidden"
     >
+      <Helmet>
+        <title>Kavach | Income Shield for India's Gig Workforce</title>
+        <meta name="description" content="Kavach turns weather, pollution, and civic risk into verified parametric cover designed around real earning days." />
+      </Helmet>
       <section
         id="top"
         className="relative overflow-hidden bg-navy pt-24 text-white sm:pt-28"
@@ -175,27 +176,8 @@ export function LandingPage() {
               </article>
             ))}
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            {payoutExamples.map((example) => (
-              <article
-                key={`${example.route}-${example.trigger}`}
-                className="rounded-[24px] border border-white/10 bg-white/6 p-5 text-white"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-sky-light/70">
-                      Live example
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold text-white">{example.route}</h3>
-                  </div>
-                  <div className="rounded-full bg-gold px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-navy">
-                    {example.time}
-                  </div>
-                </div>
-                <p className="mt-4 text-sm leading-7 text-sky-light/80">{example.trigger}</p>
-                <div className="mt-6 text-3xl font-serif text-gold">{example.payout}</div>
-              </article>
-            ))}
+          <div className="mt-10">
+            <RiskCalculator />
           </div>
         </div>
       </section>

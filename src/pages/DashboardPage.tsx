@@ -20,7 +20,9 @@ import { pageTransition } from '../lib/motion'
 import { requestEmergencySupport, getPayoutReceipt, manageAutopay, simulatePayout, upgradePolicy } from '../utils/api'
 import { downloadTextFile } from '../utils/download'
 import { formatCurrency, formatPercent } from '../utils/format'
-
+import { LiveTelemetryFeed } from '../components/LiveTelemetryFeed'
+import { RiskTrendChart } from '../components/RiskTrendChart'
+import { TrustGauge } from '../components/TrustGauge'
 const planOrder = ['Basic', 'Standard', 'Pro'] as const
 
 const sectionReveal = {
@@ -289,6 +291,7 @@ export function DashboardPage() {
         </div>
 
         <div className="space-y-6">
+          <TrustGauge />
           <ZoneMap {...dashboard.zoneMap} />
 
           <div className="panel-card p-6 sm:p-7">
@@ -314,34 +317,9 @@ export function DashboardPage() {
 
       <motion.section {...sectionReveal} transition={{ ...sectionReveal.transition, delay: 0.15 }}>
         <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
-          <div className="panel-card p-6 sm:p-7">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="mono-label">Trigger watchlist</p>
-                <h2 className="mt-2 text-2xl font-serif text-navy">What Kavach is tracking now</h2>
-              </div>
-              <StatusPill status="active">{dashboard.triggerEvaluations.length} live</StatusPill>
-            </div>
-            <div className="mt-6 space-y-3">
-              {dashboard.triggerEvaluations.map((trigger) => (
-                <div
-                  key={trigger.id}
-                  className="rounded-[24px] border border-sky-light/70 bg-kavach px-4 py-4"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="font-semibold text-navy">{trigger.name}</div>
-                      <p className="mt-1 text-sm leading-6 text-muted">{trigger.detail}</p>
-                    </div>
-                    <StatusPill status={trigger.status} />
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs font-mono uppercase tracking-[0.18em] text-muted">
-                    <span>{trigger.source}</span>
-                    <span>{trigger.probability}% probability</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-6">
+            <LiveTelemetryFeed />
+            <RiskTrendChart />
           </div>
 
           <div className="panel-card p-6 sm:p-7">

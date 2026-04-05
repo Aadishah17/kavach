@@ -2,6 +2,11 @@ import { existsSync } from 'node:fs'
 import type { Server } from 'node:http'
 import path from 'node:path'
 import express from 'express'
+import helmet from 'helmet'
+import cors from 'cors'
+import compression from 'compression'
+import rateLimit from 'express-rate-limit'
+import morgan from 'morgan'
 import {
   autopayManagementSchema,
   fraudReviewActionSchema,
@@ -14,7 +19,7 @@ import {
   signupSchema,
   supportRequestSchema,
 } from '../packages/shared/src/contracts.js'
-import { buildSignupUser, defaultFeatureFlags, planCatalog, staticAppData } from './seed.js'
+import { buildSignupUser, defaultFeatureFlags, planCatalog, buildMockAppData } from './seed.js'
 import { SqliteStore } from './store.js'
 import { FirestoreStore } from './firestore-store.js'
 import {
@@ -78,17 +83,23 @@ export function createKavachServer(options: KavachServerOptions = {}) {
     : new SqliteStore(dbPath, { legacyJsonPath })
   const app = express()
 
-  app.use(express.json({ limit: '1mb' }))
-  app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Session-Token')
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(204)
-      return
-    }
-    next()
+  app.use(helmet())
+  app.use(cors({ origin: '*' }))
+  app.use(compression())
+
+  if (process.env.NODE_ENV !== 'test') {
+    app.use(morgan('combined'))
+  }
+
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 100,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
   })
+
+  app.use('/api/', apiLimiter)
+  app.use(express.json({ limit: '1mb' }))
 
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -636,7 +647,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
     }
 
     const reviewId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-    const review = reviewId ? await store.applyFraudReviewAction(reviewId, parsed.data.action) : null
+    const review: FraudReviewRecord | null = reviewId ? await store.applyFraudReviewAction(reviewId, parsed.data.action) : null
 
     if (!review) {
       res.status(404).json({
@@ -1250,7 +1261,7 @@ function payoutRowsFromRecords(records: PayoutRecord[], user: StoredUser) {
     date: formatShortDate(record.updatedAt),
     type: '💸 Payout',
     disruption: record.triggerTitle,
-    zone: record.zone,
+    zone: record.zone || user.zone,
     amount: record.amount,
     status: capitalizePayoutStatus(record.status),
   }))

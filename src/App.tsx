@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
+import { HelmetProvider } from 'react-helmet-async'
 import { useAuth } from './context/AuthContext'
 
 const LandingLayout = lazy(() =>
@@ -110,7 +111,7 @@ function AdminRoute() {
 
 function App() {
   return (
-    <>
+    <HelmetProvider>
       <Suspense
         fallback={
           <div className="grid min-h-screen place-items-center bg-kavach px-6 text-center">
@@ -145,7 +146,7 @@ function App() {
         </Routes>
       </Suspense>
       <Analytics />
-    </>
+    </HelmetProvider>
   )
 }
 

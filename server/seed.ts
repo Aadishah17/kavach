@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { faker } from '@faker-js/faker'
 import type { BaseWorkerProfile, FeatureFlagRecord, PlanName, ProfileSetting, SignupInput, StoredUser } from './types.js'
 
 export const planCatalog: Record<
@@ -70,8 +71,19 @@ export const defaultFeatureFlags: FeatureFlagRecord[] = [
   },
 ]
 
-export const staticAppData = {
-  dateRange: '18 Mar - 24 Mar 2026',
+export function buildMockAppData() {
+  const today = new Date()
+
+  const formatDate = (offsetDays: number) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() + offsetDays)
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).replace(/,/g, '')
+  }
+
+  const currentWeekStr = `${formatDate(0)} - ${formatDate(6)}`
+
+  return {
+    dateRange: currentWeekStr,
   coverageStatus: 'safe',
   zoneStatus: 'triggered' as const,
   zoneMap: {
@@ -89,13 +101,13 @@ export const staticAppData = {
     zone: 'Koramangala',
     condition: 'IMD Red Alert · 82mm rainfall',
     payoutAmount: 571,
-    triggeredAt: '2:34 PM IST, Tue 18 Mar 2026',
-    paidAt: '2:38 PM IST, Tue 18 Mar 2026',
+    triggeredAt: `2:34 PM IST, ${formatDate(0)}`,
+    paidAt: `2:38 PM IST, ${formatDate(0)}`,
     coverage: 100,
   },
   payoutHistory: [
     {
-      date: 'Tue 18 Mar 2026',
+      date: formatDate(0),
       type: '🌧️ Payout',
       disruption: 'Heavy Rain (Red Alert)',
       zone: 'Koramangala',
@@ -103,7 +115,7 @@ export const staticAppData = {
       status: 'Paid',
     },
     {
-      date: 'Mon 17 Mar 2026',
+      date: formatDate(-1),
       type: '💳 Premium',
       disruption: 'Weekly AutoPay',
       zone: 'All zones',
@@ -111,7 +123,7 @@ export const staticAppData = {
       status: 'Paid',
     },
     {
-      date: 'Fri 14 Mar 2026',
+      date: formatDate(-4),
       type: '🌧️ Payout',
       disruption: 'Heavy Rain (Orange Alert)',
       zone: 'Koramangala',
@@ -119,7 +131,7 @@ export const staticAppData = {
       status: 'Paid',
     },
     {
-      date: 'Mon 10 Mar 2026',
+      date: formatDate(-8),
       type: '💳 Premium',
       disruption: 'Weekly AutoPay',
       zone: 'All zones',
@@ -127,7 +139,7 @@ export const staticAppData = {
       status: 'Paid',
     },
     {
-      date: 'Wed 5 Mar 2026',
+      date: formatDate(-13),
       type: '✊ Payout',
       disruption: 'Bandh - Local Strike',
       zone: 'Indiranagar',
@@ -136,13 +148,13 @@ export const staticAppData = {
     },
   ],
   premiumHistory: [
-    { cycle: 'Week 12', paidOn: 'Mon 17 Mar', amount: 49, note: 'Weekly AutoPay' },
-    { cycle: 'Week 11', paidOn: 'Mon 10 Mar', amount: 49, note: 'Weekly AutoPay' },
-    { cycle: 'Week 10', paidOn: 'Mon 03 Mar', amount: 49, note: 'Weekly AutoPay' },
-    { cycle: 'Week 09', paidOn: 'Mon 24 Feb', amount: 49, note: 'Weekly AutoPay' },
+    { cycle: 'Week 12', paidOn: formatDate(-1), amount: 49, note: 'Weekly AutoPay' },
+    { cycle: 'Week 11', paidOn: formatDate(-8), amount: 49, note: 'Weekly AutoPay' },
+    { cycle: 'Week 10', paidOn: formatDate(-15), amount: 49, note: 'Weekly AutoPay' },
+    { cycle: 'Week 09', paidOn: formatDate(-22), amount: 49, note: 'Weekly AutoPay' },
   ],
   analyticsKpis: {
-    activeWorkers: 48271,
+    activeWorkers: faker.number.int({ min: 45000, max: 50000 }),
     weeklyPremium: 2360000,
     claimsPaid: 910000,
     fraudDetectionRate: 94.2,
@@ -440,7 +452,8 @@ export const staticAppData = {
       description: 'Finalize setup and ride with peace of mind.',
     },
   ],
-} as const
+  }
+}
 
 export function buildDemoUser() {
   return {
