@@ -1,22 +1,16 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io' show Platform;
+import 'package:http/http.dart' as http;
 
 class ApiService {
   static const String _tokenKey = 'kavach_session_token';
+  static const String _configuredBaseUrl = String.fromEnvironment(
+    'KAVACH_API_BASE_URL',
+    defaultValue: 'https://kavach-kappa-ten.vercel.app/api',
+  );
 
-  // Use 10.0.2.2 for Android Emulator, localhost for iOS simulator / web
-  static String get baseUrl {
-    try {
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8787/api';
-      }
-    } catch (e) {
-      // Ignore for web
-    }
-    return 'http://localhost:8787/api';
-  }
+  // Override with --dart-define=KAVACH_API_BASE_URL=... for local development.
+  static String get baseUrl => _configuredBaseUrl;
 
   static Future<String?> getSavedToken() async {
     final prefs = await SharedPreferences.getInstance();

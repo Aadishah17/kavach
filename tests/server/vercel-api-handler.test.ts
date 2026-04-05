@@ -96,6 +96,10 @@ describe('Vercel API handler', () => {
         source: '/api/:path*',
         destination: '/api?path=:path*',
       },
+      {
+        source: '/(.*)',
+        destination: '/index.html',
+      },
     ])
   })
 
