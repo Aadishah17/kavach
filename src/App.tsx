@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { useAuth } from './context/AuthContext'
 
 const LandingLayout = lazy(() =>
@@ -103,37 +104,40 @@ function AdminRoute() {
 
 function App() {
   return (
-    <Suspense
-      fallback={
-        <div className="grid min-h-screen place-items-center bg-kavach px-6 text-center">
-          <div>
-            <p className="font-serif text-4xl text-navy">Kavach</p>
-            <p className="mt-3 text-sm font-medium text-muted">Loading your protection layer…</p>
+    <>
+      <Suspense
+        fallback={
+          <div className="grid min-h-screen place-items-center bg-kavach px-6 text-center">
+            <div>
+              <p className="font-serif text-4xl text-navy">Kavach</p>
+              <p className="mt-3 text-sm font-medium text-muted">Loading your protection layer…</p>
+            </div>
           </div>
-        </div>
-      }
-    >
-      <ScrollManager />
-      <Routes>
-        <Route element={<LandingLayout />}>
-          <Route path="/" element={<LandingPage />} />
-        </Route>
-        <Route path="/signup" element={<OnboardingPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/claims" element={<ClaimsPage />} />
-            <Route element={<AdminRoute />}>
-              <Route path="/analytics" element={<AnalyticsPage />} />
-            </Route>
-            <Route path="/policy" element={<PolicyPage />} />
-            <Route path="/alerts" element={<AlertsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+        }
+      >
+        <ScrollManager />
+        <Routes>
+          <Route element={<LandingLayout />}>
+            <Route path="/" element={<LandingPage />} />
           </Route>
-        </Route>
-        <Route path="*" element={<Navigate replace to="/" />} />
-      </Routes>
-    </Suspense>
+          <Route path="/signup" element={<OnboardingPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/claims" element={<ClaimsPage />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/analytics" element={<AnalyticsPage />} />
+              </Route>
+              <Route path="/policy" element={<PolicyPage />} />
+              <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
+          </Route>
+          <Route path="*" element={<Navigate replace to="/" />} />
+        </Routes>
+      </Suspense>
+      <Analytics />
+    </>
   )
 }
 
