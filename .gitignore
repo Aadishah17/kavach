@@ -36,3 +36,5 @@ flutter_kavach/ios/Pods/
 git_status.txt
 server-runtime.*.log
 server-test.*.log
+
+.vercel
