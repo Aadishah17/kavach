@@ -13,7 +13,7 @@ import type {
   StoredUser,
   SupportTicketRecord,
 } from './types.js'
-import { buildDemoUser, defaultProfileSettings } from './seed.js'
+import { buildDemoUser, buildDemoWorkerUser, defaultProfileSettings } from './seed.js'
 
 const SESSION_TTL_DAYS = 30
 
@@ -25,7 +25,7 @@ export class FirestoreStore {
   }
 
   async init() {
-    await this.ensureDemoUser()
+    await this.ensureDemoUsers()
   }
 
   close() {
@@ -345,10 +345,15 @@ export class FirestoreStore {
 
   // ─── Private ─────────────────────────────────────────────
 
-  private async ensureDemoUser() {
-    const existing = await this.getUserById('user-demo')
-    if (!existing) {
+  private async ensureDemoUsers() {
+    const existingAdmin = await this.getUserById('user-demo')
+    if (!existingAdmin) {
       await this.upsertUser(buildDemoUser())
+    }
+
+    const existingWorker = await this.getUserById('user-demo-worker')
+    if (!existingWorker) {
+      await this.upsertUser(buildDemoWorkerUser())
     }
   }
 

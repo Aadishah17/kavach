@@ -73,6 +73,26 @@ describe('Kavach API auth and session flows', () => {
     assert.equal(expired.response.status, 401)
   })
 
+  test('logs in the seeded demo worker by phone and email', async () => {
+    const byPhone = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: { identifier: '+91 90000 77777' },
+    })
+
+    assert.equal(byPhone.response.status, 201)
+    assert.equal(byPhone.json?.user.role, 'worker')
+    assert.equal(byPhone.json?.user.email, '919000077777@kavach.local')
+
+    const byEmail = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: { identifier: '919000077777@kavach.local' },
+    })
+
+    assert.equal(byEmail.response.status, 201)
+    assert.equal(byEmail.json?.user.role, 'worker')
+    assert.equal(byEmail.json?.user.phone, '+91 90000 77777')
+  })
+
   test('signs up a worker, blocks analytics, and persists profile settings', async () => {
     const payload: SignupPayload = {
       name: 'Aman Singh',

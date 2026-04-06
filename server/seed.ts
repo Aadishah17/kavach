@@ -469,6 +469,31 @@ export function buildDemoUser() {
   } satisfies StoredUser
 }
 
+export function buildDemoWorkerUser() {
+  return {
+    id: 'user-demo-worker',
+    email: '919000077777@kavach.local',
+    status: 'active' as const,
+    createdAt: '2026-03-18T08:05:00.000Z',
+    updatedAt: '2026-03-18T08:05:00.000Z',
+    lastLoginAt: null,
+    name: 'Kavach Test Worker',
+    platform: 'Swiggy',
+    phone: '+91 90000 77777',
+    platforms: ['Swiggy', 'Zomato'],
+    city: 'Bengaluru',
+    zone: 'Koramangala, Bengaluru',
+    plan: 'Kavach Standard',
+    weeklyPremium: 49,
+    iwi: 4000,
+    trustScore: 91,
+    upi: 'kavachworker@upi',
+    kycVerified: true,
+    nextDeduction: 'Monday, 13 April 2026',
+    role: 'worker' as const,
+  } satisfies StoredUser
+}
+
 export function buildSignupUser(input: SignupInput) {
   const pricing = planCatalog[input.plan]
 
