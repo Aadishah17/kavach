@@ -455,6 +455,8 @@ export function buildMockAppData() {
   }
 }
 
+export const staticAppData = buildMockAppData()
+
 export function buildDemoUser() {
   return {
     id: 'user-demo',

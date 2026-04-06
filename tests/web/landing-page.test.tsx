@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { HelmetProvider } from 'react-helmet-async'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -39,9 +40,11 @@ describe('Landing page', () => {
 
   test('points the Android download CTA at the bundled apk asset', () => {
     render(
-      <MemoryRouter>
-        <LandingPage />
-      </MemoryRouter>,
+      <HelmetProvider>
+        <MemoryRouter>
+          <LandingPage />
+        </MemoryRouter>
+      </HelmetProvider>,
     )
 
     const downloadLink = screen.getByRole('link', { name: /download app \(android\)/i })

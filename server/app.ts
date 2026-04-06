@@ -19,7 +19,7 @@ import {
   signupSchema,
   supportRequestSchema,
 } from '../packages/shared/src/contracts.js'
-import { buildSignupUser, defaultFeatureFlags, planCatalog, buildMockAppData } from './seed.js'
+import { buildSignupUser, defaultFeatureFlags, planCatalog, staticAppData } from './seed.js'
 import { SqliteStore } from './store.js'
 import { FirestoreStore } from './firestore-store.js'
 import {

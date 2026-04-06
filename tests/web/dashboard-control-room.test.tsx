@@ -19,8 +19,10 @@ vi.mock('recharts', () => {
   const passthrough = ({ children }: { children?: unknown }) => <>{children}</>
   return {
     ResponsiveContainer: passthrough,
+    AreaChart: passthrough,
     BarChart: passthrough,
     PieChart: passthrough,
+    Area: passthrough,
     Bar: passthrough,
     Pie: passthrough,
     CartesianGrid: () => null,
