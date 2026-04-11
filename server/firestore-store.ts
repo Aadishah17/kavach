@@ -13,7 +13,8 @@ import type {
   StoredUser,
   SupportTicketRecord,
 } from './types.js'
-import { buildDemoUser, buildDemoWorkerUser, defaultProfileSettings } from './seed.js'
+import { defaultProfileSettings } from './seed.js'
+import { ensureDemoLiveData } from './demo-live-data.js'
 
 const SESSION_TTL_DAYS = 30
 
@@ -25,7 +26,7 @@ export class FirestoreStore {
   }
 
   async init() {
-    await this.ensureDemoUsers()
+    await ensureDemoLiveData(this)
   }
 
   close() {
@@ -341,20 +342,6 @@ export class FirestoreStore {
     await this.db.collection('featureFlags').doc(flag.key).set(flag, { merge: true })
     const doc = await this.db.collection('featureFlags').doc(flag.key).get()
     return doc.exists ? (doc.data() as FeatureFlagRecord) : null
-  }
-
-  // ─── Private ─────────────────────────────────────────────
-
-  private async ensureDemoUsers() {
-    const existingAdmin = await this.getUserById('user-demo')
-    if (!existingAdmin) {
-      await this.upsertUser(buildDemoUser())
-    }
-
-    const existingWorker = await this.getUserById('user-demo-worker')
-    if (!existingWorker) {
-      await this.upsertUser(buildDemoWorkerUser())
-    }
   }
 
   private clone<T>(value: T) {

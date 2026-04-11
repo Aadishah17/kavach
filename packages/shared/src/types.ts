@@ -437,18 +437,27 @@ export type AuthResponse = {
 export type LandingPayload = {
   platformPartners: string[]
   landingStats: Array<{ label: string; value: string }>
-  problemCards: Array<{ title: string; description: string; stat: string }>
+  problemCards: Array<{
+    title: string
+    description: string
+    stat: string
+    emoji?: string
+    statLabel?: string
+  }>
   howItWorksSteps: Array<{ title: string; description: string }>
   triggerCards: TriggerCardData[]
   pricingTiers: Array<{
     tier: string
-    price: string
+    price: string | number
     coverage: string
     features: string[]
     featured?: boolean
   }>
   trustProof?: Array<{ title: string; detail: string; metric: string }>
   faq?: Array<{ question: string; answer: string }>
+  onboardingChecklist?: Array<{ title: string; description: string }>
+  heroActiveAlert?: ActiveAlert
+  heroWorker?: Pick<WorkerProfile, 'zone' | 'trustScore'>
 }
 
 export type ApiErrorPayload = {

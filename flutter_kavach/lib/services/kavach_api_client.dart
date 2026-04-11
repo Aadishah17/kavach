@@ -173,6 +173,9 @@ class HttpKavachApiClient implements KavachApiClient {
   Future<Map<String, String>> _headers({bool includeAuth = false}) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'no-cache', // Allow proxy caching depending on endpoint, but prefer fresh data if mutating
     };
 
     if (includeAuth) {

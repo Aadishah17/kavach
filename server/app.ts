@@ -19,9 +19,10 @@ import {
   signupSchema,
   supportRequestSchema,
 } from '../packages/shared/src/contracts.js'
-import { buildSignupUser, defaultFeatureFlags, planCatalog, staticAppData } from './seed.js'
+import { buildSignupUser, defaultFeatureFlags, demoProfile, planCatalog, staticAppData } from './seed.js'
 import { SqliteStore } from './store.js'
 import { FirestoreStore } from './firestore-store.js'
+import { MongoStore } from './mongo-store.js'
 import {
   buildAnalyticsExportCsv,
   buildAnalyticsIntelligence,
@@ -43,7 +44,7 @@ import type {
   SupportTicketRecord,
 } from './types.js'
 
-type Store = SqliteStore | FirestoreStore
+type Store = SqliteStore | FirestoreStore | MongoStore
 
 export type KavachServerPaths = {
   rootPath: string
@@ -69,6 +70,60 @@ export function resolveServerPaths(rootPath = process.cwd()): KavachServerPaths 
   }
 }
 
+function createStore({
+  dbPath,
+  legacyJsonPath,
+}: {
+  dbPath: string
+  legacyJsonPath: string | null
+}) {
+  const storeDriver = resolveStoreDriver()
+
+  if (storeDriver === 'mongodb') {
+    const mongoUri = process.env.MONGODB_URI
+
+    if (!mongoUri) {
+      throw new Error('MONGODB_URI is required when DATA_STORE is set to mongodb.')
+    }
+
+    return new MongoStore(mongoUri, {
+      dbName: process.env.MONGODB_DB_NAME ?? 'kavach',
+    })
+  }
+
+  if (storeDriver === 'firestore') {
+    return new FirestoreStore()
+  }
+
+  return new SqliteStore(dbPath, { legacyJsonPath })
+}
+
+function resolveStoreDriver() {
+  const configured = process.env.DATA_STORE?.trim().toLowerCase()
+
+  if (configured === 'mongodb') {
+    return 'mongodb'
+  }
+
+  if (configured === 'firestore') {
+    return 'firestore'
+  }
+
+  if (configured === 'sqlite') {
+    return 'sqlite'
+  }
+
+  if (process.env.MONGODB_URI) {
+    return 'mongodb'
+  }
+
+  if (process.env.USE_FIRESTORE === 'true') {
+    return 'firestore'
+  }
+
+  return 'sqlite'
+}
+
 export function createKavachServer(options: KavachServerOptions = {}) {
   const paths = resolveServerPaths()
   const port = options.port ?? Number(process.env.PORT ?? 8787)
@@ -77,10 +132,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
   const webDistPath = options.webDistPath ?? paths.webDistPath
   const serveStatic = options.serveStatic ?? true
 
-  const useFirestore = process.env.USE_FIRESTORE === 'true'
-  const store: Store = useFirestore
-    ? new FirestoreStore()
-    : new SqliteStore(dbPath, { legacyJsonPath })
+  const store = createStore({ dbPath, legacyJsonPath })
   const app = express()
 
   app.use(helmet())
@@ -690,6 +742,12 @@ export function createKavachServer(options: KavachServerOptions = {}) {
       pricingTiers: staticAppData.pricingTiers,
       trustProof: staticAppData.trustProof,
       faq: staticAppData.faq,
+      onboardingChecklist: staticAppData.onboardingChecklist,
+      heroActiveAlert: staticAppData.activeAlert,
+      heroWorker: {
+        zone: demoProfile.zone,
+        trustScore: demoProfile.trustScore,
+      },
     })
   }))
 
@@ -717,7 +775,7 @@ export function createKavachServer(options: KavachServerOptions = {}) {
   }
 
   async function close() {
-    store.close()
+    await store.close()
   }
 
   async function start() {

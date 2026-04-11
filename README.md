@@ -61,7 +61,7 @@ kavach/
 | **Web Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Framer Motion, Recharts, React Router 6 |
 | **Mobile App** | Flutter 3, Dart, Provider, Material Design 3 |
 | **API Server** | Express 5, TypeScript, Zod validation |
-| **Database** | SQLite (local dev) / Google Cloud Firestore (production) |
+| **Database** | SQLite (local dev) / MongoDB Atlas or Google Cloud Firestore (remote) |
 | **Auth** | Token-based sessions with SHA-256 hashing, 30-day TTL |
 | **Deployment** | Docker, Google Cloud Run |
 | **CI/CD** | GitHub Actions |
@@ -223,6 +223,24 @@ npm run dev
 ```
 
 The web app runs at `http://localhost:5173` and the API at `http://localhost:8787`.
+
+### MongoDB Atlas (Live Mock Data)
+
+To run Kavach against a dedicated MongoDB database instead of the local SQLite file:
+
+```bash
+export DATA_STORE=mongodb
+export MONGODB_URI='mongodb+srv://<user>:<password>@<cluster>/?appName=Cluster0'
+export MONGODB_DB_NAME=kavach
+
+# Seed demo users, payouts, notifications, support tickets, and feature flags
+npm run demo:reset
+
+# Start the API + web app
+npm run dev
+```
+
+The server will use the `kavach` database name even if the connection string omits one, which keeps the Kavach app data isolated inside the Atlas cluster.
 
 ### Available Scripts
 

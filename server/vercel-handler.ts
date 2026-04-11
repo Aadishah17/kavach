@@ -76,7 +76,7 @@ function normalizeApiUrl(rawUrl = '/api') {
 }
 
 function resolveVercelOptions(options: KavachServerOptions): KavachServerOptions {
-  if (options.dbPath || !isVercelRuntime() || process.env.USE_FIRESTORE === 'true') {
+  if (options.dbPath || !isVercelRuntime() || usesRemoteStore()) {
     return options
   }
 
@@ -89,4 +89,12 @@ function resolveVercelOptions(options: KavachServerOptions): KavachServerOptions
 
 function isVercelRuntime() {
   return process.env.VERCEL === '1' || typeof process.env.VERCEL_ENV === 'string'
+}
+
+function usesRemoteStore() {
+  const configured = process.env.DATA_STORE?.trim().toLowerCase()
+  return configured === 'firestore'
+    || configured === 'mongodb'
+    || process.env.USE_FIRESTORE === 'true'
+    || typeof process.env.MONGODB_URI === 'string'
 }

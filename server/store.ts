@@ -16,7 +16,8 @@ import type {
   StoredUser,
   SupportTicketRecord,
 } from './types.js'
-import { buildDemoUser, buildDemoWorkerUser, defaultProfileSettings } from './seed.js'
+import { defaultProfileSettings } from './seed.js'
+import { ensureDemoLiveData } from './demo-live-data.js'
 
 type LegacySessionRecord = {
   token: string
@@ -324,7 +325,7 @@ export class SqliteStore {
     `)
 
     await this.importLegacyJsonIfNeeded()
-    await this.ensureDemoUsers()
+    await ensureDemoLiveData(this)
     this.purgeExpiredSessions()
   }
 
@@ -895,22 +896,6 @@ export class SqliteStore {
         addDays(session.lastSeenAt, SESSION_TTL_DAYS),
         session.revokedAt,
       )
-    }
-  }
-
-  private async ensureDemoUsers() {
-    const existingDemoUser = await this.getUserById('user-demo')
-    if (!existingDemoUser) {
-      await this.upsertUser(buildDemoUser())
-    } else if (!this.hasStoredProfileSettings(existingDemoUser.id)) {
-      await this.updateProfileSettings(existingDemoUser.id, defaultProfileSettings)
-    }
-
-    const existingDemoWorker = await this.getUserById('user-demo-worker')
-    if (!existingDemoWorker) {
-      await this.upsertUser(buildDemoWorkerUser())
-    } else if (!this.hasStoredProfileSettings(existingDemoWorker.id)) {
-      await this.updateProfileSettings(existingDemoWorker.id, defaultProfileSettings)
     }
   }
 
