@@ -1,7 +1,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import { defineConfig } from 'eslint/config'
 
 export default defineConfig([
   { ignores: ['dist'] },
@@ -12,15 +12,14 @@ export default defineConfig([
     },
     languageOptions: {
       parser: tseslint.parser,
-      parserOptions: {
-        project: true,
-      },
       ecmaVersion: 2020,
       globals: globals.node,
     },
     rules: {
       ...js.configs.recommended.rules,
       ...tseslint.configs.recommended.rules,
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
 ])
