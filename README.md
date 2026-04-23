@@ -344,6 +344,9 @@ gcloud run deploy kavach-app \
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
 | `PORT` | `8787` (dev) / `8080` (Docker) | Server port |
+| `DATA_STORE` | `sqlite` | Storage driver (`sqlite`, `firestore`, or `mongodb`) |
+| `MONGODB_URI` | — | Required when `DATA_STORE=mongodb` |
+| `MONGODB_DB_NAME` | `kavach` | MongoDB database name override |
 | `USE_FIRESTORE` | `false` | Use Cloud Firestore instead of SQLite |
 | `NODE_ENV` | `development` | Set to `production` in deployed environments |
 
